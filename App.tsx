@@ -1,20 +1,60 @@
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import NavigationBar from './components/NavigationBar';
+
+// Import your screens
+import WelcomeScreen from './screens/WelcomeScreen';
+import TrialInfoScreen from './screens/TrialInfoScreen';
+import RegistrationScreen from './screens/RegistrationScreen';
+import MainChatScreen from './screens/MainChatScreen';
+import PurchaseScreen from './screens/PurchaseScreen';
+
+const Stack = createStackNavigator();
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
+    <NavigationContainer>
       <StatusBar style="auto" />
-    </View>
+      <Stack.Navigator 
+        initialRouteName="Welcome"
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: '#2E7D32',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      >
+        <Stack.Screen 
+          name="Welcome" 
+          component={WelcomeScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="TrialInfo" 
+          component={TrialInfoScreen}
+          options={{ title: 'Free Trial' }}
+        />
+        <Stack.Screen 
+          name="Registration" 
+          component={RegistrationScreen}
+          options={{ title: 'Create Account' }}
+        />
+        <Stack.Screen 
+          name="MainChat" 
+          component={MainChatScreen}
+          options={{ title: 'Main' }}
+        />
+        <Stack.Screen 
+          name="Purchase" 
+          component={PurchaseScreen}
+          options={{ title: 'Purchase Credits' }}
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
