@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import WelcomeScreen from './screens/WelcomeScreen';
 import TrialInfoScreen from './screens/TrialInfoScreen';
 import RegistrationScreen from './screens/RegistrationScreen';
+import LoginScreen from './screens/LoginScreen';
 import MainChatScreen from './screens/MainChatScreen';
 import PurchaseScreen from './screens/PurchaseScreen';
 
@@ -42,6 +43,11 @@ export default function App() {
           name="Registration" 
           component={RegistrationScreen}
           options={{ title: 'Create Account' }}
+        />
+        <Stack.Screen 
+          name="Login" 
+          component={LoginScreen}
+          options={{ title: 'Login' }}
         />
         <Stack.Screen 
           name="MainChat" 

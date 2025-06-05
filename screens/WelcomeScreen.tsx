@@ -1,3 +1,4 @@
+// screens/WelcomeScreen.tsx
 import React, { useRef, useEffect } from 'react';
 import {
   View,
@@ -53,7 +54,7 @@ export default function WelcomeScreen({ navigation }: any) {
 
         <TouchableOpacity
           style={styles.linkButton}
-          onPress={() => navigation.navigate('Registration')}
+          onPress={() => navigation.navigate('Login')}
           activeOpacity={0.6}
         >
           <Text style={styles.linkText}>Already have an account? Sign In</Text>
@@ -113,4 +114,3 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 });
-

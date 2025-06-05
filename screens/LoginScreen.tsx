@@ -1,4 +1,4 @@
-// screens/RegistrationScreen.tsx
+// screens/LoginScreen.tsx
 import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as SecureStore from 'expo-secure-store';
 
 // API base URL
 const API_BASE_URL = 'https://bartstolarek.com';
@@ -39,7 +40,7 @@ const alertPolyfill = (title: string, description?: string, options?: any[], ext
 
 const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
 
-export default function RegistrationScreen({ navigation }: any) {
+export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -54,7 +55,7 @@ export default function RegistrationScreen({ navigation }: any) {
   // Button pulse animation
   const buttonScale = useRef(new Animated.Value(1)).current;
 
-  // Animate dots ("Creating Account.", "Creating Account..", "Creating Account...")
+  // Animate dots ("Signing In.", "Signing In..", "Signing In...")
   useEffect(() => {
     let dotInterval: NodeJS.Timer;
 
@@ -128,7 +129,7 @@ export default function RegistrationScreen({ navigation }: any) {
     ]).start();
   }, []);
 
-  const handleRegistration = async () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       showAlert('Error', 'Please fill in all fields');
       return;
@@ -140,15 +141,10 @@ export default function RegistrationScreen({ navigation }: any) {
       return;
     }
 
-    if (password.length < 6) {
-      showAlert('Error', 'Password must be at least 6 characters long');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/user/`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/token/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,36 +152,36 @@ export default function RegistrationScreen({ navigation }: any) {
         body: JSON.stringify({
           email: email.toLowerCase().trim(),
           password: password,
-          system: 'carbie',
-          user_type: 'trial',
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        // Store the token securely
+        try {
+          await SecureStore.setItemAsync('auth_token', data.access_token);
+        } catch (error) {
+          console.warn('Could not store token securely:', error);
+          // Fallback for platforms that don't support SecureStore
+          if (Platform.OS === 'web') {
+            localStorage.setItem('auth_token', data.access_token);
+          }
+        }
+
         // Navigate immediately to MainChat
         navigation.navigate('MainChat');
         
         // Show success message
         showAlert(
-          'Success!',
-          'Your account has been created successfully. Welcome to Carbie!'
+          'Welcome Back!',
+          'You have been signed in successfully.'
         );
       } else {
-        let errorMessage = 'Registration failed. Please try again.';
+        let errorMessage = 'Login failed. Please try again.';
 
-        if (response.status === 400) {
-          // Handle email already registered
-          if (data.detail && typeof data.detail === 'object' && data.detail.detail) {
-            // Handle nested detail structure: {"detail":{"detail":"Email already registered for carbie"}}
-            errorMessage = data.detail.detail;
-          } else if (data.detail && typeof data.detail === 'string') {
-            // Handle direct string detail: {"detail":"Email already registered for carbie"}
-            errorMessage = data.detail;
-          } else {
-            errorMessage = 'This email address is already registered. Please try a different email or sign in instead.';
-          }
+        if (response.status === 401) {
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
         } else if (response.status === 422) {
           // Handle validation errors
           if (data.detail && Array.isArray(data.detail)) {
@@ -199,7 +195,7 @@ export default function RegistrationScreen({ navigation }: any) {
           errorMessage = 'Server error. Please try again later.';
         }
 
-        showAlert('Registration Failed', errorMessage);
+        showAlert('Login Failed', errorMessage);
       }
     } catch (error) {
       showAlert(
@@ -211,8 +207,8 @@ export default function RegistrationScreen({ navigation }: any) {
     }
   };
 
-  // Compose "Creating Account" text with animated dots
-  const loadingText = 'Creating Account' + '.'.repeat(dotCount);
+  // Compose "Signing In" text with animated dots
+  const loadingText = 'Signing In' + '.'.repeat(dotCount);
 
   return (
     <LinearGradient
@@ -225,9 +221,9 @@ export default function RegistrationScreen({ navigation }: any) {
           { transform: [{ scale: titleScale }] },
         ]}
       >
-        <Text style={styles.title}>Create Account</Text>
+        <Text style={styles.title}>Welcome Back</Text>
         <Text style={styles.subtitle}>
-          Join Carbie to start your nutrition journey
+          Sign in to continue your nutrition journey
         </Text>
       </Animated.View>
 
@@ -293,7 +289,7 @@ export default function RegistrationScreen({ navigation }: any) {
           />
           <TextInput
             style={styles.input}
-            placeholder="Password (min 6 characters)"
+            placeholder="Password"
             placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
@@ -309,7 +305,7 @@ export default function RegistrationScreen({ navigation }: any) {
         <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
           <TouchableOpacity
             style={[styles.button, loading ? styles.buttonDisabled : {}]}
-            onPress={handleRegistration}
+            onPress={handleLogin}
             disabled={loading}
             activeOpacity={0.8}
           >
@@ -321,14 +317,23 @@ export default function RegistrationScreen({ navigation }: any) {
                 </Text>
               </View>
             ) : (
-              <Text style={styles.buttonText}>Create Account</Text>
+              <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
         </Animated.View>
 
         <TouchableOpacity
           style={styles.linkButton}
-          onPress={() => navigation.navigate('Welcome')}
+          onPress={() => navigation.navigate('Registration')}
+          activeOpacity={0.6}
+          disabled={loading}
+        >
+          <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.linkButton, { marginTop: 10 }]}
+          onPress={() => navigation.goBack()}
           activeOpacity={0.6}
           disabled={loading}
         >
