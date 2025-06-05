@@ -142,26 +142,66 @@ export default function RegistrationScreen({ navigation }: any) {
       const data = await response.json();
 
       if (response.ok) {
+        // Log for debugging
+        console.log('Registration successful, status:', response.status);
+        console.log('User data:', data);
+        console.log('Navigation object:', navigation);
+        console.log('Available routes:', navigation.getState?.());
+        
+        // Navigate immediately without alert first to test
+        console.log('Attempting immediate navigation...');
+        try {
+          navigation.navigate('MainChat');
+          console.log('Navigation command sent successfully');
+        } catch (navigationError) {
+          console.error('Navigation error:', navigationError);
+        }
+        
         Alert.alert(
           'Success!',
           'Your account has been created successfully. You can now start using Carbie!',
           [
             {
               text: 'OK',
-              onPress: () => navigation.navigate('MainChat'),
+              onPress: () => {
+                console.log('Alert OK pressed, navigating to MainChat...');
+                try {
+                  navigation.navigate('MainChat');
+                  console.log('Navigation from alert completed');
+                } catch (navigationError) {
+                  console.error('Navigation error from alert:', navigationError);
+                  // Fallback navigation
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'MainChat' }],
+                  });
+                }
+              },
             },
           ]
         );
       } else {
         let errorMessage = 'Registration failed. Please try again.';
 
-        if (response.status === 422) {
+        if (response.status === 400) {
+          // Handle email already registered
+          if (data.detail && typeof data.detail === 'object' && data.detail.detail) {
+            // Handle nested detail structure: {"detail":{"detail":"Email already registered for carbie"}}
+            errorMessage = data.detail.detail;
+          } else if (data.detail && typeof data.detail === 'string') {
+            // Handle direct string detail: {"detail":"Email already registered for carbie"}
+            errorMessage = data.detail;
+          } else {
+            errorMessage = 'This email address is already registered. Please try a different email or sign in instead.';
+          }
+        } else if (response.status === 422) {
+          // Handle validation errors
           if (data.detail && Array.isArray(data.detail)) {
             errorMessage = data.detail.map((err: any) => err.msg).join(', ');
           } else if (data.detail) {
             errorMessage = data.detail;
           } else {
-            errorMessage = 'This email address is already registered.';
+            errorMessage = 'Please check your input and try again.';
           }
         } else if (response.status >= 500) {
           errorMessage = 'Server error. Please try again later.';
@@ -179,7 +219,7 @@ export default function RegistrationScreen({ navigation }: any) {
     }
   };
 
-  // Compose “Creating Account” text with animated dots
+  // Compose "Creating Account" text with animated dots
   const loadingText = 'Creating Account' + '.'.repeat(dotCount);
 
   return (
