@@ -2,7 +2,6 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
-import NavigationBar from './components/NavigationBar';
 
 // Import your screens
 import WelcomeScreen from './screens/WelcomeScreen';
