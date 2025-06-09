@@ -14,9 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-
-// API base URL
-const API_BASE_URL = 'https://bartstolarek.com';
+import { authService } from '../services/AuthService';
 
 // Cross-platform alert function
 const alertPolyfill = (title: string, description?: string, options?: any[], extra?: any) => {
@@ -50,11 +48,9 @@ export default function RegistrationScreen({ navigation }: any) {
   const emailAnim = useRef(new Animated.Value(0)).current;
   const passAnim = useRef(new Animated.Value(0)).current;
   const buttonOpacity = useRef(new Animated.Value(0)).current;
-
-  // Button pulse animation
   const buttonScale = useRef(new Animated.Value(1)).current;
 
-  // Animate dots ("Creating Account.", "Creating Account..", "Creating Account...")
+  // Animate dots
   useEffect(() => {
     let dotInterval: NodeJS.Timer;
 
@@ -71,7 +67,7 @@ export default function RegistrationScreen({ navigation }: any) {
     };
   }, [loading]);
 
-  // When `loading` toggles, start/stop the pulsing loop
+  // Button pulse animation when loading
   useEffect(() => {
     if (loading) {
       Animated.loop(
@@ -91,13 +87,12 @@ export default function RegistrationScreen({ navigation }: any) {
         ])
       ).start();
     } else {
-      // Reset scale back to 1 immediately when not loading
       buttonScale.setValue(1);
     }
   }, [loading]);
 
+  // Initial animations
   useEffect(() => {
-    // 1) Scale in the title
     Animated.timing(titleScale, {
       toValue: 1,
       duration: 700,
@@ -105,7 +100,6 @@ export default function RegistrationScreen({ navigation }: any) {
       useNativeDriver: true,
     }).start();
 
-    // 2) Fade in email, password, then button
     Animated.sequence([
       Animated.timing(emailAnim, {
         toValue: 1,
@@ -148,70 +142,29 @@ export default function RegistrationScreen({ navigation }: any) {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/user/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.toLowerCase().trim(),
-          password: password,
-          system: 'carbie',
-          user_type: 'trial',
-        }),
-      });
+      const result = await authService.register(email, password);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Navigate immediately to MainChat
-        navigation.navigate('MainChat');
+      if (result.success) {
+        // Navigate to MainChat and reset navigation stack
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainChat' }],
+        });
         
-        // Show success message
         showAlert(
           'Success!',
           'Your account has been created successfully. Welcome to Carbie!'
         );
       } else {
-        let errorMessage = 'Registration failed. Please try again.';
-
-        if (response.status === 400) {
-          // Handle email already registered
-          if (data.detail && typeof data.detail === 'object' && data.detail.detail) {
-            // Handle nested detail structure: {"detail":{"detail":"Email already registered for carbie"}}
-            errorMessage = data.detail.detail;
-          } else if (data.detail && typeof data.detail === 'string') {
-            // Handle direct string detail: {"detail":"Email already registered for carbie"}
-            errorMessage = data.detail;
-          } else {
-            errorMessage = 'This email address is already registered. Please try a different email or sign in instead.';
-          }
-        } else if (response.status === 422) {
-          // Handle validation errors
-          if (data.detail && Array.isArray(data.detail)) {
-            errorMessage = data.detail.map((err: any) => err.msg).join(', ');
-          } else if (data.detail) {
-            errorMessage = data.detail;
-          } else {
-            errorMessage = 'Please check your input and try again.';
-          }
-        } else if (response.status >= 500) {
-          errorMessage = 'Server error. Please try again later.';
-        }
-
-        showAlert('Registration Failed', errorMessage);
+        showAlert('Registration Failed', result.error || 'Unknown error occurred');
       }
     } catch (error) {
-      showAlert(
-        'Network Error',
-        'Unable to connect to the server. Please check your internet connection and try again.'
-      );
+      showAlert('Error', 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Compose "Creating Account" text with animated dots
   const loadingText = 'Creating Account' + '.'.repeat(dotCount);
 
   return (
@@ -374,7 +327,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2, // Android
+    elevation: 2,
   },
   icon: {
     marginRight: 8,
@@ -397,7 +350,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
-    elevation: 3, // Android
+    elevation: 3,
     flexDirection: 'row',
     justifyContent: 'center',
   },

@@ -14,10 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
-
-// API base URL
-const API_BASE_URL = 'https://bartstolarek.com';
+import { authService } from '../services/AuthService';
 
 // Cross-platform alert function
 const alertPolyfill = (title: string, description?: string, options?: any[], extra?: any) => {
@@ -51,11 +48,9 @@ export default function LoginScreen({ navigation }: any) {
   const emailAnim = useRef(new Animated.Value(0)).current;
   const passAnim = useRef(new Animated.Value(0)).current;
   const buttonOpacity = useRef(new Animated.Value(0)).current;
-
-  // Button pulse animation
   const buttonScale = useRef(new Animated.Value(1)).current;
 
-  // Animate dots ("Signing In.", "Signing In..", "Signing In...")
+  // Animate dots
   useEffect(() => {
     let dotInterval: NodeJS.Timer;
 
@@ -72,7 +67,7 @@ export default function LoginScreen({ navigation }: any) {
     };
   }, [loading]);
 
-  // When `loading` toggles, start/stop the pulsing loop
+  // Button pulse animation when loading
   useEffect(() => {
     if (loading) {
       Animated.loop(
@@ -92,13 +87,12 @@ export default function LoginScreen({ navigation }: any) {
         ])
       ).start();
     } else {
-      // Reset scale back to 1 immediately when not loading
       buttonScale.setValue(1);
     }
   }, [loading]);
 
+  // Initial animations
   useEffect(() => {
-    // 1) Scale in the title
     Animated.timing(titleScale, {
       toValue: 1,
       duration: 700,
@@ -106,7 +100,6 @@ export default function LoginScreen({ navigation }: any) {
       useNativeDriver: true,
     }).start();
 
-    // 2) Fade in email, password, then button
     Animated.sequence([
       Animated.timing(emailAnim, {
         toValue: 1,
@@ -144,70 +137,26 @@ export default function LoginScreen({ navigation }: any) {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/token/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.toLowerCase().trim(),
-          password: password,
-        }),
-      });
+      const result = await authService.login(email, password);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Store the token securely
-        try {
-          await SecureStore.setItemAsync('auth_token', data.access_token);
-        } catch (error) {
-          console.warn('Could not store token securely:', error);
-          // Fallback for platforms that don't support SecureStore
-          if (Platform.OS === 'web') {
-            localStorage.setItem('auth_token', data.access_token);
-          }
-        }
-
-        // Navigate immediately to MainChat
-        navigation.navigate('MainChat');
+      if (result.success) {
+        // Navigate to MainChat and reset navigation stack
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainChat' }],
+        });
         
-        // Show success message
-        showAlert(
-          'Welcome Back!',
-          'You have been signed in successfully.'
-        );
+        showAlert('Welcome Back!', 'You have been signed in successfully.');
       } else {
-        let errorMessage = 'Login failed. Please try again.';
-
-        if (response.status === 401) {
-          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
-        } else if (response.status === 422) {
-          // Handle validation errors
-          if (data.detail && Array.isArray(data.detail)) {
-            errorMessage = data.detail.map((err: any) => err.msg).join(', ');
-          } else if (data.detail) {
-            errorMessage = data.detail;
-          } else {
-            errorMessage = 'Please check your input and try again.';
-          }
-        } else if (response.status >= 500) {
-          errorMessage = 'Server error. Please try again later.';
-        }
-
-        showAlert('Login Failed', errorMessage);
+        showAlert('Login Failed', result.error || 'Unknown error occurred');
       }
     } catch (error) {
-      showAlert(
-        'Network Error',
-        'Unable to connect to the server. Please check your internet connection and try again.'
-      );
+      showAlert('Error', 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Compose "Signing In" text with animated dots
   const loadingText = 'Signing In' + '.'.repeat(dotCount);
 
   return (
@@ -379,7 +328,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2, // Android
+    elevation: 2,
   },
   icon: {
     marginRight: 8,
@@ -402,7 +351,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
-    elevation: 3, // Android
+    elevation: 3,
     flexDirection: 'row',
     justifyContent: 'center',
   },
