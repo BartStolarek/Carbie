@@ -130,6 +130,8 @@ export default function MainChatScreen({ navigation }: any) {
           const resultResponse = await apiClient.get<CarbieResult>(`/api/v1/job/result/${jobId}`);
 
           if (resultResponse.success && resultResponse.data) {
+            console.log('Job result:', resultResponse.data);
+            setLoadingStatus('Job completed successfully!');
             return resultResponse.data;
           } else {
             throw new Error(resultResponse.error || 'Failed to get job result');
@@ -143,7 +145,7 @@ export default function MainChatScreen({ navigation }: any) {
         }
 
         // Wait 5 seconds before next check
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
       } catch (error) {
         console.error('Error polling job status:', error);
@@ -236,7 +238,7 @@ export default function MainChatScreen({ navigation }: any) {
 
       // Submit to Carbie inference endpoint using API client
       const response = await apiClient.post<JobResponse>('/api/v1/carbie/', {
-        model_name: 'carbie-v1',
+        model_name: 'claude-haiku',
         model_version: 'latest',
         prompt: prompt,
       });
