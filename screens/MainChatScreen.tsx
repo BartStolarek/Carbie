@@ -20,7 +20,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { authService } from '../services/AuthService';
 
-const API_BASE_URL = 'http://localhost:8000';
 
 interface ResultItem {
   ingredient: string;

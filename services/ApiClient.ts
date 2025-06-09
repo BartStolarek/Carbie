@@ -1,7 +1,7 @@
 // services/ApiClient.ts
 import { Platform } from 'react-native';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://bartstolarek.com';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -55,7 +55,7 @@ class ApiClient {
         return 'Access forbidden - insufficient permissions';
       
       case 404:
-        return `Endpoint not found: ${endpoint}. This might be a client-side bug.`;
+        return `Endpoint not found: (BASE URL: ${API_BASE_URL} Endpoint: ${endpoint}. This might be a client-side bug.`;
       
       case 409:
         return 'Conflict - this action cannot be completed (possibly duplicate data)';
