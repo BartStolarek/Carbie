@@ -20,7 +20,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { authService } from '../services/AuthService';
 
-
 interface ResultItem {
   ingredient: string;
   carbRange: string;
@@ -42,6 +41,10 @@ interface CarbieResult {
     prompt_tokens?: number;
     completion_tokens?: number;
     total_tokens?: number;
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
   };
 }
 
@@ -49,7 +52,6 @@ interface CarbieResult {
 const alertPolyfill = (title: string, description?: string, options?: any[], extra?: any) => {
   if (Platform.OS === 'web') {
     const result = window.confirm([title, description].filter(Boolean).join('\n'));
-
     if (options && options.length > 0) {
       if (result) {
         const confirmOption = options.find(({ style }) => style !== 'cancel');
@@ -72,6 +74,8 @@ export default function MainChatScreen({ navigation }: any) {
   const [results, setResults] = useState<ResultItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
+  const [fullResponse, setFullResponse] = useState<CarbieResult | null>(null); // NEW: Store full response
+  const [showDebugBox, setShowDebugBox] = useState(true); // NEW: Toggle debug box visibility
 
   // Animate the title scaling in
   const titleScale = useRef(new Animated.Value(0.8)).current;
@@ -107,30 +111,27 @@ export default function MainChatScreen({ navigation }: any) {
     );
   };
 
-  // Replace the pollJobStatus function with this improved version:
   const pollJobStatus = async (jobId: string): Promise<CarbieResult | null> => {
-    const maxAttempts = 60; // Poll for up to 5 minutes (5s intervals)
+    const maxAttempts = 60; // Poll for up to 5 minutes (1s intervals)
     let attempts = 0;
 
     while (attempts < maxAttempts) {
       try {
         setLoadingStatus(`Checking status... (${attempts + 1}/${maxAttempts})`);
-
+        
         const statusResponse = await apiClient.get(`/api/v1/job/status/${jobId}`);
-
+        
         if (!statusResponse.success) {
           throw new Error(statusResponse.error || 'Failed to check job status');
         }
 
         const statusData = statusResponse.data;
-
+        
         if (statusData.status === 'completed') {
           // Get the result
           const resultResponse = await apiClient.get<CarbieResult>(`/api/v1/job/result/${jobId}`);
-
+          
           if (resultResponse.success && resultResponse.data) {
-            console.log('Job result:', resultResponse.data);
-            setLoadingStatus('Job completed successfully!');
             return resultResponse.data;
           } else {
             throw new Error(resultResponse.error || 'Failed to get job result');
@@ -143,7 +144,7 @@ export default function MainChatScreen({ navigation }: any) {
           setLoadingStatus('Your request is in queue...');
         }
 
-        // Wait 5 seconds before next check
+        // Wait 1 seconds before next check
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
       } catch (error) {
@@ -174,7 +175,7 @@ export default function MainChatScreen({ navigation }: any) {
       // Fall back to line-by-line parsing
       const lines = answer.split('\n').filter(line => line.trim());
       const results: ResultItem[] = [];
-
+      
       for (const line of lines) {
         if (line.includes(':') && (line.includes('carb') || line.includes('g'))) {
           const parts = line.split(':');
@@ -215,6 +216,7 @@ export default function MainChatScreen({ navigation }: any) {
 
     setLoading(true);
     setResults([]);
+    setFullResponse(null); // NEW: Clear previous response
     setLoadingStatus('Submitting request...');
 
     try {
@@ -263,9 +265,10 @@ export default function MainChatScreen({ navigation }: any) {
 
       // Poll for results
       const result = await pollJobStatus(response.data.job_id);
-
+      
       if (result) {
         console.log('Got result:', result);
+        setFullResponse(result); // NEW: Store the full response
         const parsedResults = parseAIResponse(result.answer);
         setResults(parsedResults);
       } else {
@@ -381,6 +384,65 @@ export default function MainChatScreen({ navigation }: any) {
           >
             <MaterialIcons name="close" size={20} color="#FFFFFF" />
           </TouchableOpacity>
+        </View>
+      )}
+
+      {/* NEW: Debug Response Box */}
+      {fullResponse && (
+        <View style={styles.debugContainer}>
+          <View style={styles.debugHeader}>
+            <Text style={styles.debugTitle}>Response Details (Debug)</Text>
+            <TouchableOpacity 
+              onPress={() => setShowDebugBox(!showDebugBox)}
+              style={styles.toggleButton}
+            >
+              <MaterialIcons 
+                name={showDebugBox ? "expand-less" : "expand-more"} 
+                size={20} 
+                color="#2E7D32" 
+              />
+            </TouchableOpacity>
+          </View>
+          
+          {showDebugBox && (
+            <ScrollView style={styles.debugContent} nestedScrollEnabled={true}>
+              <Text style={styles.debugText}>
+                <Text style={styles.debugLabel}>Model:</Text> {fullResponse.model_name} ({fullResponse.model_version})
+              </Text>
+              
+              <Text style={styles.debugText}>
+                <Text style={styles.debugLabel}>Prompt:</Text> {fullResponse.prompt}
+              </Text>
+              
+              {fullResponse.reasoning && (
+                <Text style={styles.debugText}>
+                  <Text style={styles.debugLabel}>Reasoning:</Text> {fullResponse.reasoning}
+                </Text>
+              )}
+              
+              <Text style={styles.debugText}>
+                <Text style={styles.debugLabel}>Answer:</Text> {fullResponse.answer}
+              </Text>
+              
+              <Text style={styles.debugText}>
+                <Text style={styles.debugLabel}>Usage:</Text>
+              </Text>
+              <View style={styles.usageContainer}>
+                {Object.entries(fullResponse.usage).map(([key, value]) => (
+                  <Text key={key} style={styles.usageText}>
+                    • {key}: {value}
+                  </Text>
+                ))}
+              </View>
+              
+              <Text style={styles.debugText}>
+                <Text style={styles.debugLabel}>Full Response JSON:</Text>
+              </Text>
+              <Text style={styles.jsonText}>
+                {JSON.stringify(fullResponse, null, 2)}
+              </Text>
+            </ScrollView>
+          )}
         </View>
       )}
 
@@ -512,6 +574,70 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // NEW DEBUG STYLES
+  debugContainer: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 10,
+    marginBottom: 15,
+    borderWidth: 2,
+    borderColor: '#FFA726',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  debugHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#FFF3E0',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  debugTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#E65100',
+  },
+  toggleButton: {
+    padding: 4,
+  },
+  debugContent: {
+    maxHeight: 200,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  debugText: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 8,
+    lineHeight: 18,
+  },
+  debugLabel: {
+    fontWeight: 'bold',
+    color: '#2E7D32',
+  },
+  usageContainer: {
+    paddingLeft: 12,
+    marginBottom: 8,
+  },
+  usageText: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 2,
+  },
+  jsonText: {
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    color: '#444',
+    backgroundColor: '#F5F5F5',
+    padding: 8,
+    borderRadius: 4,
+    lineHeight: 16,
   },
   resultsContainer: {
     flex: 1,
