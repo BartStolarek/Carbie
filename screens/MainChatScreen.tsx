@@ -20,8 +20,24 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { authService } from '../services/AuthService';
 
+interface IngredientData {
+  ingredient: string;
+  is_liquid: boolean;
+  estimated_weight_volume: number;
+  low_carb_estimate: number;
+  high_carb_estimate: number;
+  peak_bg_time: string;
+}
+
+interface StructuredData {
+  is_food_related: boolean;
+  ingredients: IngredientData[];
+  message: string;
+}
+
 interface ResultItem {
   ingredient: string;
+  weightVolume: string;
   carbRange: string;
   peakTime: string;
 }
@@ -35,8 +51,7 @@ interface CarbieResult {
   model_name: string;
   model_version: string;
   prompt: string;
-  reasoning?: string;
-  answer: string;
+  structured_data?: StructuredData;
   usage: {
     prompt_tokens?: number;
     completion_tokens?: number;
@@ -46,6 +61,7 @@ interface CarbieResult {
     cache_creation_input_tokens?: number;
     cache_read_input_tokens?: number;
   };
+  elapsed_time_seconds: number;
 }
 
 // Cross-platform alert function
@@ -74,8 +90,9 @@ export default function MainChatScreen({ navigation }: any) {
   const [results, setResults] = useState<ResultItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
-  const [fullResponse, setFullResponse] = useState<CarbieResult | null>(null); // NEW: Store full response
-  const [showDebugBox, setShowDebugBox] = useState(true); // NEW: Toggle debug box visibility
+  const [fullResponse, setFullResponse] = useState<CarbieResult | null>(null);
+  const [showDebugBox, setShowDebugBox] = useState(true);
+  const [analysisMessage, setAnalysisMessage] = useState<string>('');
 
   // Animate the title scaling in
   const titleScale = useRef(new Animated.Value(0.8)).current;
@@ -156,56 +173,45 @@ export default function MainChatScreen({ navigation }: any) {
     throw new Error('Request timed out');
   };
 
-  const parseAIResponse = (answer: string): ResultItem[] => {
-    // Try to parse structured response, fall back to simple parsing
-    try {
-      // Look for JSON-like structure
-      const jsonMatch = answer.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.foods && Array.isArray(parsed.foods)) {
-          return parsed.foods.map((food: any) => ({
-            ingredient: food.name || food.ingredient || 'Unknown',
-            carbRange: `${food.carbs || 'N/A'}g`,
-            peakTime: food.peak_time || food.peakTime || 'N/A',
-          }));
-        }
-      }
-
-      // Fall back to line-by-line parsing
-      const lines = answer.split('\n').filter(line => line.trim());
-      const results: ResultItem[] = [];
+  const parseStructuredResponse = (response: CarbieResult): ResultItem[] => {
+    // Check if we have structured data
+    if (response.structured_data && response.structured_data.ingredients) {
+      const { structured_data } = response;
       
-      for (const line of lines) {
-        if (line.includes(':') && (line.includes('carb') || line.includes('g'))) {
-          const parts = line.split(':');
-          if (parts.length >= 2) {
-            results.push({
-              ingredient: parts[0].trim(),
-              carbRange: '10-20g', // Default values
-              peakTime: '1-2 hrs',
-            });
-          }
-        }
-      }
-
-      return results.length > 0 ? results : [
-        {
-          ingredient: 'Analysis completed',
-          carbRange: 'See details',
-          peakTime: 'Varies',
-        }
-      ];
-    } catch (error) {
-      console.error('Error parsing AI response:', error);
-      return [
-        {
-          ingredient: 'Analysis completed',
-          carbRange: 'See response',
-          peakTime: 'Check details',
-        }
-      ];
+      // Set the analysis message
+      setAnalysisMessage(structured_data.message || '');
+      
+      // Convert structured ingredients to ResultItem format
+      return structured_data.ingredients.map((ingredient: IngredientData) => {
+        // Format weight/volume with appropriate unit
+        const weightVolumeDisplay = ingredient.is_liquid 
+          ? `${ingredient.estimated_weight_volume}ml`
+          : `${ingredient.estimated_weight_volume}g`;
+        
+        // Format carb range
+        const carbRange = ingredient.low_carb_estimate === ingredient.high_carb_estimate
+          ? `${ingredient.low_carb_estimate}g`
+          : `${ingredient.low_carb_estimate}-${ingredient.high_carb_estimate}g`;
+        
+        return {
+          ingredient: ingredient.ingredient,
+          weightVolume: weightVolumeDisplay,
+          carbRange: carbRange,
+          peakTime: ingredient.peak_bg_time,
+        };
+      });
     }
+    
+    // Fallback to old parsing method if no structured data
+    setAnalysisMessage('Analysis completed');
+    return [
+      {
+        ingredient: 'Analysis completed',
+        weightVolume: 'See details',
+        carbRange: 'See response',
+        peakTime: 'Check details',
+      }
+    ];
   };
 
   const handleSubmit = async () => {
@@ -216,7 +222,8 @@ export default function MainChatScreen({ navigation }: any) {
 
     setLoading(true);
     setResults([]);
-    setFullResponse(null); // NEW: Clear previous response
+    setFullResponse(null);
+    setAnalysisMessage('');
     setLoadingStatus('Submitting request...');
 
     try {
@@ -268,8 +275,8 @@ export default function MainChatScreen({ navigation }: any) {
       
       if (result) {
         console.log('Got result:', result);
-        setFullResponse(result); // NEW: Store the full response
-        const parsedResults = parseAIResponse(result.answer);
+        setFullResponse(result);
+        const parsedResults = parseStructuredResponse(result);
         setResults(parsedResults);
       } else {
         throw new Error('No result received');
@@ -387,7 +394,14 @@ export default function MainChatScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* NEW: Debug Response Box */}
+      {/* Analysis Message */}
+      {analysisMessage && (
+        <View style={styles.messageContainer}>
+          <Text style={styles.messageText}>{analysisMessage}</Text>
+        </View>
+      )}
+
+      {/* Debug Response Box */}
       {fullResponse && (
         <View style={styles.debugContainer}>
           <View style={styles.debugHeader}>
@@ -414,14 +428,8 @@ export default function MainChatScreen({ navigation }: any) {
                 <Text style={styles.debugLabel}>Prompt:</Text> {fullResponse.prompt}
               </Text>
               
-              {fullResponse.reasoning && (
-                <Text style={styles.debugText}>
-                  <Text style={styles.debugLabel}>Reasoning:</Text> {fullResponse.reasoning}
-                </Text>
-              )}
-              
               <Text style={styles.debugText}>
-                <Text style={styles.debugLabel}>Answer:</Text> {fullResponse.answer}
+                <Text style={styles.debugLabel}>Elapsed Time:</Text> {fullResponse.elapsed_time_seconds.toFixed(2)}s
               </Text>
               
               <Text style={styles.debugText}>
@@ -452,9 +460,10 @@ export default function MainChatScreen({ navigation }: any) {
           <View style={styles.table}>
             {/* Header Row */}
             <View style={[styles.row, styles.headerRow]}>
-              <Text style={[styles.cell, styles.headerCell, { flex: 0.4 }]}>Ingredient</Text>
-              <Text style={[styles.cell, styles.headerCell, { flex: 0.3 }]}>Carb (g)</Text>
-              <Text style={[styles.cell, styles.headerCell, { flex: 0.3 }]}>Peak BG Time</Text>
+              <Text style={[styles.cell, styles.headerCell, { flex: 0.35 }]}>Ingredient</Text>
+              <Text style={[styles.cell, styles.headerCell, { flex: 0.2 }]}>Amount</Text>
+              <Text style={[styles.cell, styles.headerCell, { flex: 0.25 }]}>Carbs</Text>
+              <Text style={[styles.cell, styles.headerCell, { flex: 0.2 }]}>Peak BG</Text>
             </View>
 
             {/* Data Rows */}
@@ -466,11 +475,12 @@ export default function MainChatScreen({ navigation }: any) {
                   index % 2 === 0 ? styles.evenRow : styles.oddRow,
                 ]}
               >
-                <Text style={[styles.cell, { flex: 0.4 }]} numberOfLines={1}>
+                <Text style={[styles.cell, { flex: 0.35 }]} numberOfLines={2}>
                   {item.ingredient}
                 </Text>
-                <Text style={[styles.cell, { flex: 0.3 }]}>{item.carbRange}</Text>
-                <Text style={[styles.cell, { flex: 0.3 }]}>{item.peakTime}</Text>
+                <Text style={[styles.cell, { flex: 0.2 }]}>{item.weightVolume}</Text>
+                <Text style={[styles.cell, { flex: 0.25 }]}>{item.carbRange}</Text>
+                <Text style={[styles.cell, { flex: 0.2 }]}>{item.peakTime}</Text>
               </View>
             ))}
           </View>
@@ -575,7 +585,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // NEW DEBUG STYLES
+  messageContainer: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  messageText: {
+    fontSize: 16,
+    color: '#2E7D32',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
   debugContainer: {
     backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 10,
@@ -662,11 +688,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.7)',
   },
   cell: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#333',
   },
   headerCell: {
     fontWeight: 'bold',
     color: '#2E7D32',
+    fontSize: 14,
   },
 });

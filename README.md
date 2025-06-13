@@ -1,3 +1,7 @@
+# Install the latest eas cli
+
+`sudo npm install -g eas-cli`
+
 # Building to send to expo dashboard
 
 ## Preview Build (Recommended for testing)
