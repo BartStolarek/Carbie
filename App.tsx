@@ -1,7 +1,7 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -15,7 +15,7 @@ import PurchaseScreen from './screens/PurchaseScreen';
 
 import { authService } from './services/AuthService';
 
-const Stack = createStackNavigator();
+const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +63,7 @@ export default function App() {
           headerTitleStyle: {
             fontWeight: 'bold',
           },
+          // cardStyle is not needed with createNativeStackNavigator
         }}
       >
         {/* Public screens */}
