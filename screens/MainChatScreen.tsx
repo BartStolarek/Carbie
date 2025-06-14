@@ -229,6 +229,86 @@ const TEST_RESPONSE2: CarbieResult = {
   "elapsed_time_seconds": 9.499581
 };
 
+const TEST_RESPONSE3: CarbieResult = {
+  "model_name": "claude-haiku",
+  "model_version": "latest",
+  "prompt": "a 3 course meal with chicken soup, roast lamb pumpkin and potato main, and apple crumb with ice cream dessert",
+  "structured_data": {
+    "is_food_related": true,
+    "ingredients": [
+      {
+        "ingredient": "Chicken Soup",
+        "is_liquid": true,
+        "estimated_weight_volume": 250,
+        "low_carb_estimate": 5,
+        "high_carb_estimate": 10,
+        "gi_index": 40,
+        "peak_bg_time": "45min"
+      },
+      {
+        "ingredient": "Roast Lamb",
+        "is_liquid": false,
+        "estimated_weight_volume": 150,
+        "low_carb_estimate": 0,
+        "high_carb_estimate": 2,
+        "gi_index": 0,
+        "peak_bg_time": "30min"
+      },
+      {
+        "ingredient": "Pumpkin",
+        "is_liquid": false,
+        "estimated_weight_volume": 100,
+        "low_carb_estimate": 10,
+        "high_carb_estimate": 15,
+        "gi_index": 75,
+        "peak_bg_time": "60min"
+      },
+      {
+        "ingredient": "Potato",
+        "is_liquid": false,
+        "estimated_weight_volume": 150,
+        "low_carb_estimate": 20,
+        "high_carb_estimate": 30,
+        "gi_index": 80,
+        "peak_bg_time": "75min"
+      },
+      {
+        "ingredient": "Apple Crumb",
+        "is_liquid": false,
+        "estimated_weight_volume": 120,
+        "low_carb_estimate": 25,
+        "high_carb_estimate": 35,
+        "gi_index": 70,
+        "peak_bg_time": "90min"
+      },
+      {
+        "ingredient": "Ice Cream",
+        "is_liquid": true,
+        "estimated_weight_volume": 100,
+        "low_carb_estimate": 15,
+        "high_carb_estimate": 25,
+        "gi_index": 50,
+        "peak_bg_time": "60min"
+      }
+    ],
+    "aggregated_peak_bg_time_minutes": 75,
+    "message": "Total carbs: 75-117g, peak BG around 75 minutes"
+  },
+  "usage": {
+    "input_tokens": 1338,
+    "output_tokens": 641,
+    "total_tokens": 1979,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_cost_usd": 0.0010704,
+    "output_cost_usd": 0.002564,
+    "cache_write_cost_usd": 0,
+    "cache_read_cost_usd": 0,
+    "total_cost_usd": 0.0036344
+  },
+  "elapsed_time_seconds": 9.264172
+};
+
 // Cross-platform alert function
 const alertPolyfill = (title: string, description?: string, options?: any[], extra?: any) => {
   if (Platform.OS === 'web') {
@@ -409,6 +489,19 @@ export default function MainChatScreen({ navigation }: any) {
         console.log('Using test response');
         setFullResponse(TEST_RESPONSE2);
         const parsedResults = parseStructuredResponse(TEST_RESPONSE2);
+        setResults(parsedResults);
+        return;
+      }
+
+      if (inputText.trim().toLowerCase() === 'test3') {
+        setLoadingStatus('Processing test3 request...');
+
+        // Simulate some loading time for test
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        console.log('Using test response');
+        setFullResponse(TEST_RESPONSE3);
+        const parsedResults = parseStructuredResponse(TEST_RESPONSE3);
         setResults(parsedResults);
         return;
       }
