@@ -16,11 +16,13 @@ export interface IngredientData {
     estimated_weight_volume: number;
     low_carb_estimate: number;
     high_carb_estimate: number;
+    gi_index: number; // Glycemic Index
     peak_bg_time: string; // e.g. "60min"
 }
 
 interface TotalAnalysisProps {
     ingredients: IngredientData[];
+    aggregated_peak_bg_time_minutes: number; 
 }
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -33,7 +35,7 @@ const MetricCard = ({
     subtitle,
     color = '#2E7D32',
     delay = 0,
-    both = false
+    both = false,
 }: {
     icon: string;
     title: string;
@@ -111,7 +113,7 @@ const MetricCard = ({
     );
 };
 
-export default function TotalAnalysis({ ingredients }: TotalAnalysisProps) {
+export default function TotalAnalysis({ aggregated_peak_bg_time_minutes, ingredients }: TotalAnalysisProps) {
     // Calculate totals
     const totalWeight = ingredients
         .filter(item => !item.is_liquid)
@@ -132,13 +134,13 @@ export default function TotalAnalysis({ ingredients }: TotalAnalysisProps) {
     });
 
     // Weighted average peak time calculation
-    const weightedSum = ingredients.reduce((sum, item) => {
-        const minutes = parseInt(item.peak_bg_time.match(/(\d+)/)?.[1] || '0', 10);
-        const avgCarb = (item.low_carb_estimate + item.high_carb_estimate) / 2;
-        return sum + minutes * avgCarb;
-    }, 0);
+    // const weightedSum = ingredients.reduce((sum, item) => {
+    //     const minutes = parseInt(item.peak_bg_time.match(/(\d+)/)?.[1] || '0', 10);
+    //     const avgCarb = (item.low_carb_estimate + item.high_carb_estimate) / 2;
+    //     return sum + minutes * avgCarb;
+    // }, 0);
 
-    const weightedAvg = sumAvgCarbs > 0 ? Math.round(weightedSum / sumAvgCarbs) : 0;
+    // const weightedAvg = sumAvgCarbs > 0 ? Math.round(weightedSum / sumAvgCarbs) : 0;
 
     // Format weight display
     let weightDisplay = '0g';
@@ -146,14 +148,14 @@ export default function TotalAnalysis({ ingredients }: TotalAnalysisProps) {
     let both = false;
     if (totalWeight > 0 && totalVolume > 0) {
         weightDisplay = `${totalWeight}g + ${totalVolume}ml`;
-        weightNameDisplay = 'Food + Drink';
+        weightNameDisplay = 'Food + Liquid';
         both = true;
     } else if (totalWeight > 0) {
         weightDisplay = `${totalWeight}g`;
         weightNameDisplay = 'Food';
     } else if (totalVolume > 0) {
         weightDisplay = `${totalVolume}ml`;
-        weightNameDisplay = 'Drink';
+        weightNameDisplay = 'Liquid';
     }
 
     // Format carbs display
@@ -202,7 +204,7 @@ export default function TotalAnalysis({ ingredients }: TotalAnalysisProps) {
                 <MetricCard
                     icon="schedule"
                     title="Peak BG"
-                    value={`${weightedAvg}min`}
+                    value={`${aggregated_peak_bg_time_minutes}min`}
                     subtitle="Weighted average"
                     color="#FF9800"
                     delay={300}

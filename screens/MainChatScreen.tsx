@@ -22,6 +22,7 @@ import AnalysisMessage from '../components/AnalysisMessage';
 import DebugResponse from '../components/DebugResponse';
 import IngredientsTable, { ResultItem } from '../components/IngredientsTable';
 import TotalAnalysis from '../components/TotalAnalysis';
+import CarbAbsorptionChart from '../components/CarbAbsorptionChart';
 
 interface IngredientData {
   ingredient: string;
@@ -29,12 +30,14 @@ interface IngredientData {
   estimated_weight_volume: number;
   low_carb_estimate: number;
   high_carb_estimate: number;
+  gi_index: number;
   peak_bg_time: string;
 }
 
 interface StructuredData {
   is_food_related: boolean;
   ingredients: IngredientData[];
+  aggregated_peak_bg_time_minutes: number;
   message: string;
 }
 
@@ -72,6 +75,7 @@ const TEST_RESPONSE: CarbieResult = {
   "prompt": "test",
   "structured_data": {
     "is_food_related": true,
+    "aggregated_peak_bg_time_minutes": 60,
     "ingredients": [
       {
         "ingredient": "Roast Potatoes",
@@ -79,6 +83,7 @@ const TEST_RESPONSE: CarbieResult = {
         "estimated_weight_volume": 200,
         "low_carb_estimate": 30,
         "high_carb_estimate": 40,
+        "gi_index": 70,
         "peak_bg_time": "90min"
       },
       {
@@ -87,6 +92,7 @@ const TEST_RESPONSE: CarbieResult = {
         "estimated_weight_volume": 150,
         "low_carb_estimate": 0,
         "high_carb_estimate": 2,
+        "gi_index": 0,
         "peak_bg_time": "45min"
       },
       {
@@ -95,6 +101,7 @@ const TEST_RESPONSE: CarbieResult = {
         "estimated_weight_volume": 50,
         "low_carb_estimate": 10,
         "high_carb_estimate": 15,
+        "gi_index": 80,
         "peak_bg_time": "60min"
       },
       {
@@ -103,6 +110,7 @@ const TEST_RESPONSE: CarbieResult = {
         "estimated_weight_volume": 100,
         "low_carb_estimate": 5,
         "high_carb_estimate": 10,
+        "gi_index": 50,
         "peak_bg_time": "60min"
       },
       {
@@ -111,6 +119,7 @@ const TEST_RESPONSE: CarbieResult = {
         "estimated_weight_volume": 50,
         "low_carb_estimate": 2,
         "high_carb_estimate": 5,
+        "gi_index": 20,
         "peak_bg_time": "45min"
       }
     ],
@@ -129,6 +138,95 @@ const TEST_RESPONSE: CarbieResult = {
     "total_cost_usd": 0.0057136
   },
   "elapsed_time_seconds": 13.724469
+};
+
+const TEST_RESPONSE2: CarbieResult = {
+  "model_name": "claude-haiku",
+  "model_version": "latest",
+  "prompt": "sunday roast dinner, with lamb, pumpkin, potatoes, peas, mint jelly sauce and gravy and also 30 grams of glucose tablets",
+  "structured_data": {
+    "is_food_related": true,
+    "ingredients": [
+      {
+        "ingredient": "Lamb",
+        "is_liquid": false,
+        "estimated_weight_volume": 150,
+        "low_carb_estimate": 0,
+        "high_carb_estimate": 0,
+        "gi_index": 0,
+        "peak_bg_time": "0min"
+      },
+      {
+        "ingredient": "Pumpkin",
+        "is_liquid": false,
+        "estimated_weight_volume": 100,
+        "low_carb_estimate": 10,
+        "high_carb_estimate": 15,
+        "gi_index": 75,
+        "peak_bg_time": "45min"
+      },
+      {
+        "ingredient": "Potatoes",
+        "is_liquid": false,
+        "estimated_weight_volume": 150,
+        "low_carb_estimate": 25,
+        "high_carb_estimate": 30,
+        "gi_index": 80,
+        "peak_bg_time": "60min"
+      },
+      {
+        "ingredient": "Peas",
+        "is_liquid": false,
+        "estimated_weight_volume": 50,
+        "low_carb_estimate": 5,
+        "high_carb_estimate": 8,
+        "gi_index": 50,
+        "peak_bg_time": "45min"
+      },
+      {
+        "ingredient": "Mint Jelly Sauce",
+        "is_liquid": true,
+        "estimated_weight_volume": 30,
+        "low_carb_estimate": 5,
+        "high_carb_estimate": 10,
+        "gi_index": 70,
+        "peak_bg_time": "45min"
+      },
+      {
+        "ingredient": "Gravy",
+        "is_liquid": true,
+        "estimated_weight_volume": 50,
+        "low_carb_estimate": 2,
+        "high_carb_estimate": 5,
+        "gi_index": 40,
+        "peak_bg_time": "30min"
+      },
+      {
+        "ingredient": "Glucose Tablets",
+        "is_liquid": false,
+        "estimated_weight_volume": 30,
+        "low_carb_estimate": 30,
+        "high_carb_estimate": 30,
+        "gi_index": 100,
+        "peak_bg_time": "15min"
+      }
+    ],
+    "aggregated_peak_bg_time_minutes": 60,
+    "message": "Sunday roast carb breakdown"
+  },
+  "usage": {
+    "input_tokens": 1344,
+    "output_tokens": 716,
+    "total_tokens": 2060,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_cost_usd": 0.0010752,
+    "output_cost_usd": 0.002864,
+    "cache_write_cost_usd": 0,
+    "cache_read_cost_usd": 0,
+    "total_cost_usd": 0.0039392
+  },
+  "elapsed_time_seconds": 9.499581
 };
 
 // Cross-platform alert function
@@ -291,13 +389,26 @@ export default function MainChatScreen({ navigation }: any) {
       // Check if this is a test prompt
       if (inputText.trim().toLowerCase() === 'test') {
         setLoadingStatus('Processing test request...');
-        
+
         // Simulate some loading time for test
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         console.log('Using test response');
         setFullResponse(TEST_RESPONSE);
         const parsedResults = parseStructuredResponse(TEST_RESPONSE);
+        setResults(parsedResults);
+        return;
+      }
+
+      if (inputText.trim().toLowerCase() === 'test2') {
+        setLoadingStatus('Processing test2 request...');
+
+        // Simulate some loading time for test
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        console.log('Using test response');
+        setFullResponse(TEST_RESPONSE2);
+        const parsedResults = parseStructuredResponse(TEST_RESPONSE2);
         setResults(parsedResults);
         return;
       }
@@ -403,21 +514,26 @@ export default function MainChatScreen({ navigation }: any) {
           {/* Analysis Message Component */}
           <AnalysisMessage message={analysisMessage} />
 
-          
+
 
           {/* Total Analysis Component */}
           {fullResponse?.structured_data && (
-            <TotalAnalysis ingredients={fullResponse.structured_data.ingredients} />
+            <TotalAnalysis aggregated_peak_bg_time_minutes={fullResponse.structured_data.aggregated_peak_bg_time_minutes} ingredients={fullResponse.structured_data.ingredients} />
           )}
 
           {/* Ingredients Table Component */}
           <IngredientsTable results={results} />
 
+          {/* Carb Absorption Chart Component */}
+          {fullResponse?.structured_data && (
+            <CarbAbsorptionChart ingredients={fullResponse.structured_data.ingredients} />
+          )}
+
           {/* Debug Response Component */}
           {fullResponse && (
             <DebugResponse fullResponse={fullResponse} initiallyExpanded={true} />
           )}
-          
+
         </ScrollView>
       </LinearGradient>
     </View>
