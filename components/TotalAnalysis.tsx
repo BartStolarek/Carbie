@@ -139,7 +139,6 @@ export default function TotalAnalysis({ ingredients }: TotalAnalysisProps) {
     }, 0);
 
     const weightedAvg = sumAvgCarbs > 0 ? Math.round(weightedSum / sumAvgCarbs) : 0;
-    const peakTimeDisplay = `${weightedAvg} min`;
 
     // Format weight display
     let weightDisplay = '0g';
@@ -158,7 +157,7 @@ export default function TotalAnalysis({ ingredients }: TotalAnalysisProps) {
     }
 
     // Format carbs display
-    const carbsDisplay = `${(totalHigh + totalLow) / 2} g`
+    const carbsValue = Math.round((totalHigh + totalLow) / 2);
     const carbsRange = Math.round((totalHigh - totalLow) / 2);
 
     if (!ingredients.length) {
@@ -194,7 +193,7 @@ export default function TotalAnalysis({ ingredients }: TotalAnalysisProps) {
                 <MetricCard
                     icon="grass"
                     title="Carbs"
-                    value={carbsDisplay}
+                    value={`${carbsValue}g`}
                     subtitle={`Range: +/-${carbsRange}g`}
                     color="#4CAF50"
                     delay={200}
@@ -203,7 +202,7 @@ export default function TotalAnalysis({ ingredients }: TotalAnalysisProps) {
                 <MetricCard
                     icon="schedule"
                     title="Peak BG"
-                    value={peakTimeDisplay}
+                    value={`${weightedAvg}min`}
                     subtitle="Weighted average"
                     color="#FF9800"
                     delay={300}

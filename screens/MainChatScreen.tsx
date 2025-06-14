@@ -56,9 +56,80 @@ interface CarbieResult {
     output_tokens?: number;
     cache_creation_input_tokens?: number;
     cache_read_input_tokens?: number;
+    input_cost_usd?: number;
+    output_cost_usd?: number;
+    cache_write_cost_usd?: number;
+    cache_read_cost_usd?: number;
+    total_cost_usd?: number;
   };
   elapsed_time_seconds: number;
 }
+
+// Hardcoded test response
+const TEST_RESPONSE: CarbieResult = {
+  "model_name": "claude-haiku",
+  "model_version": "latest",
+  "prompt": "test",
+  "structured_data": {
+    "is_food_related": true,
+    "ingredients": [
+      {
+        "ingredient": "Roast Potatoes",
+        "is_liquid": false,
+        "estimated_weight_volume": 200,
+        "low_carb_estimate": 30,
+        "high_carb_estimate": 40,
+        "peak_bg_time": "90min"
+      },
+      {
+        "ingredient": "Roast Beef",
+        "is_liquid": false,
+        "estimated_weight_volume": 150,
+        "low_carb_estimate": 0,
+        "high_carb_estimate": 2,
+        "peak_bg_time": "45min"
+      },
+      {
+        "ingredient": "Yorkshire Pudding",
+        "is_liquid": false,
+        "estimated_weight_volume": 50,
+        "low_carb_estimate": 10,
+        "high_carb_estimate": 15,
+        "peak_bg_time": "60min"
+      },
+      {
+        "ingredient": "Roasted Vegetables",
+        "is_liquid": false,
+        "estimated_weight_volume": 100,
+        "low_carb_estimate": 5,
+        "high_carb_estimate": 10,
+        "peak_bg_time": "60min"
+      },
+      {
+        "ingredient": "Gravy",
+        "is_liquid": true,
+        "estimated_weight_volume": 50,
+        "low_carb_estimate": 2,
+        "high_carb_estimate": 5,
+        "peak_bg_time": "45min"
+      }
+    ],
+    "message": "Carb estimates for a typical Sunday roast dinner components"
+  },
+  "usage": {
+    "input_tokens": 2947,
+    "output_tokens": 839,
+    "total_tokens": 3786,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "input_cost_usd": 0.0023576,
+    "output_cost_usd": 0.003356,
+    "cache_write_cost_usd": 0,
+    "cache_read_cost_usd": 0,
+    "total_cost_usd": 0.0057136
+  },
+  "elapsed_time_seconds": 13.724469
+};
 
 // Cross-platform alert function
 const alertPolyfill = (title: string, description?: string, options?: any[], extra?: any) => {
@@ -217,6 +288,20 @@ export default function MainChatScreen({ navigation }: any) {
     setLoadingStatus('Submitting request...');
 
     try {
+      // Check if this is a test prompt
+      if (inputText.trim().toLowerCase() === 'test') {
+        setLoadingStatus('Processing test request...');
+        
+        // Simulate some loading time for test
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        console.log('Using test response');
+        setFullResponse(TEST_RESPONSE);
+        const parsedResults = parseStructuredResponse(TEST_RESPONSE);
+        setResults(parsedResults);
+        return;
+      }
+
       // Check if user is still authenticated
       const isAuth = await authService.isAuthenticated();
       if (!isAuth) {
@@ -318,10 +403,7 @@ export default function MainChatScreen({ navigation }: any) {
           {/* Analysis Message Component */}
           <AnalysisMessage message={analysisMessage} />
 
-          {/* Debug Response Component */}
-          {fullResponse && (
-            <DebugResponse fullResponse={fullResponse} initiallyExpanded={true} />
-          )}
+          
 
           {/* Total Analysis Component */}
           {fullResponse?.structured_data && (
@@ -330,6 +412,12 @@ export default function MainChatScreen({ navigation }: any) {
 
           {/* Ingredients Table Component */}
           <IngredientsTable results={results} />
+
+          {/* Debug Response Component */}
+          {fullResponse && (
+            <DebugResponse fullResponse={fullResponse} initiallyExpanded={true} />
+          )}
+          
         </ScrollView>
       </LinearGradient>
     </View>
