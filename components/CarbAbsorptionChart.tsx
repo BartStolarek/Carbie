@@ -330,12 +330,12 @@ export default function CarbAbsorptionChart({ ingredients }: CarbAbsorptionChart
         </Svg>
       </View>
       
-      {/* Legend with GI indicator */}
+      {/* Legend with GI indicator - Now vertical */}
       <View style={styles.legend}>
         {parsedIngredients.map((ingredient, index) => (
-          <View key={index} style={styles.legendItem}>
+          <View key={`legend-${index}-${ingredient.ingredient}`} style={styles.legendItem}>
             <View style={[styles.legendColor, { backgroundColor: ingredient.color }]} />
-            <Text style={styles.legendText} numberOfLines={1}>
+            <Text style={styles.legendText}>
               {ingredient.ingredient} (GI: {ingredient.giIndex})
             </Text>
           </View>
@@ -384,32 +384,34 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    // Changed from flexDirection: 'row' to column layout
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingHorizontal: 10,
     gap: 8,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 4,
-    marginVertical: 2,
-    maxWidth: '45%',
+    width: '100%', // Take full width
+    paddingVertical: 4,
   },
   legendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    marginRight: 10,
+    flexShrink: 0, // Prevent shrinking
   },
   legendText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#333',
     flex: 1,
+    fontWeight: '500',
   },
   giInfo: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: 15,
+    paddingTop: 15,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
   },
