@@ -13,20 +13,12 @@ import LoginScreen from './screens/LoginScreen';
 import MainChatScreen from './screens/MainChatScreen';
 import PurchaseScreen from './screens/PurchaseScreen';
 // TODO: Import Profile and Account screens when they're created
-// import ProfileScreen from './screens/ProfileScreen';
+import ProfileScreen from './screens/ProfileScreen';
 // import AccountScreen from './screens/AccountScreen';
 
 import { authService } from './services/AuthService';
 
 const Stack = createNativeStackNavigator();
-
-// Placeholder components for Profile and Account screens
-const ProfileScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 24, color: '#2E7D32' }}>Profile Screen</Text>
-    <Text style={{ fontSize: 16, color: '#666', marginTop: 10 }}>Coming Soon!</Text>
-  </View>
-);
 
 const AccountScreen = () => (
   <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
