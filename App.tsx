@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 
@@ -12,10 +12,28 @@ import RegistrationScreen from './screens/RegistrationScreen';
 import LoginScreen from './screens/LoginScreen';
 import MainChatScreen from './screens/MainChatScreen';
 import PurchaseScreen from './screens/PurchaseScreen';
+// TODO: Import Profile and Account screens when they're created
+// import ProfileScreen from './screens/ProfileScreen';
+// import AccountScreen from './screens/AccountScreen';
 
 import { authService } from './services/AuthService';
 
 const Stack = createNativeStackNavigator();
+
+// Placeholder components for Profile and Account screens
+const ProfileScreen = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 24, color: '#2E7D32' }}>Profile Screen</Text>
+    <Text style={{ fontSize: 16, color: '#666', marginTop: 10 }}>Coming Soon!</Text>
+  </View>
+);
+
+const AccountScreen = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: 24, color: '#2E7D32' }}>Account Screen</Text>
+    <Text style={{ fontSize: 16, color: '#666', marginTop: 10 }}>Coming Soon!</Text>
+  </View>
+);
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -63,7 +81,6 @@ export default function App() {
           headerTitleStyle: {
             fontWeight: 'bold',
           },
-          // cardStyle is not needed with createNativeStackNavigator
         }}
       >
         {/* Public screens */}
@@ -98,6 +115,16 @@ export default function App() {
           name="Purchase" 
           component={PurchaseScreen}
           options={{ title: 'Purchase Credits' }}
+        />
+        <Stack.Screen 
+          name="Profile" 
+          component={ProfileScreen}
+          options={{ title: 'Profile' }}
+        />
+        <Stack.Screen 
+          name="Account" 
+          component={AccountScreen}
+          options={{ title: 'Account' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

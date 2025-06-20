@@ -5,7 +5,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Animated,
   Easing,
   Platform,
@@ -13,8 +12,6 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
-import { authService } from '../services/AuthService';
 
 // Import the new components
 import FoodInput from '../components/FoodInput';
@@ -23,6 +20,8 @@ import DebugResponse from '../components/DebugResponse';
 import IngredientsTable, { ResultItem } from '../components/IngredientsTable';
 import TotalAnalysis from '../components/TotalAnalysis';
 import CarbAbsorptionChart from '../components/CarbAbsorptionChart';
+import MenuDropdown from '../components/MenuDropdown';
+import { authService } from '../services/AuthService';
 
 interface IngredientData {
   ingredient: string;
@@ -349,29 +348,6 @@ export default function MainChatScreen({ navigation }: any) {
     }).start();
   }, []);
 
-  const handleLogout = async () => {
-    showAlert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          onPress: async () => {
-            await authService.logout();
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Welcome' }],
-            });
-          },
-        },
-      ]
-    );
-  };
-
   const pollJobStatus = async (jobId: string): Promise<CarbieResult | null> => {
     const maxAttempts = 60; // Poll for up to 5 minutes (1s intervals)
     let attempts = 0;
@@ -576,14 +552,12 @@ export default function MainChatScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#A8E063', '#2E7D32']} style={styles.gradientContainer}>
-        {/* Header with logout button - Outside ScrollView */}
+        {/* Header with menu button - Outside ScrollView */}
         <View style={styles.header}>
           <Animated.View style={[styles.headerContainer, { transform: [{ scale: titleScale }] }]}>
             <Text style={styles.title}>Carbie's Estimation</Text>
           </Animated.View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <MaterialIcons name="logout" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <MenuDropdown navigation={navigation} />
         </View>
 
         {/* ScrollView for main content */}
@@ -606,8 +580,6 @@ export default function MainChatScreen({ navigation }: any) {
 
           {/* Analysis Message Component */}
           <AnalysisMessage message={analysisMessage} />
-
-
 
           {/* Total Analysis Component */}
           {fullResponse?.structured_data && (
@@ -656,9 +628,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
-  },
-  logoutButton: {
-    padding: 8,
   },
   scrollView: {
     flex: 1,
