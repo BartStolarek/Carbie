@@ -11,21 +11,12 @@ import TrialInfoScreen from './screens/TrialInfoScreen';
 import RegistrationScreen from './screens/RegistrationScreen';
 import LoginScreen from './screens/LoginScreen';
 import MainChatScreen from './screens/MainChatScreen';
-import PurchaseScreen from './screens/PurchaseScreen';
-// TODO: Import Profile and Account screens when they're created
 import ProfileScreen from './screens/ProfileScreen';
-// import AccountScreen from './screens/AccountScreen';
+import AccountScreen from './screens/AccountScreen';
 
 import { authService } from './services/AuthService';
 
 const Stack = createNativeStackNavigator();
-
-const AccountScreen = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 24, color: '#2E7D32' }}>Account Screen</Text>
-    <Text style={{ fontSize: 16, color: '#666', marginTop: 10 }}>Coming Soon!</Text>
-  </View>
-);
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
@@ -102,11 +93,6 @@ export default function App() {
           name="MainChat" 
           component={MainChatScreen}
           options={{ headerShown: false }}
-        />
-        <Stack.Screen 
-          name="Purchase" 
-          component={PurchaseScreen}
-          options={{ title: 'Purchase Credits' }}
         />
         <Stack.Screen 
           name="Profile" 
