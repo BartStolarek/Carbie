@@ -19,9 +19,20 @@
       "ios": {
         "autoIncrement": true
       }
+    },
+    "production-aab": {
+      "extends": "production",
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "track": "internal"
+      }
+    }
   }
 }

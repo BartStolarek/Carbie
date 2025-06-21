@@ -113,12 +113,13 @@ export default function AccountScreen({ navigation }: any) {
     }
   };
 
+  // Temporary handlers for purchase functionality
   const handleSubscribe = () => {
-    navigation.navigate('Purchase');
+    showAlert('Coming Soon', 'Subscription functionality will be available soon!');
   };
 
   const handleUpgradeSubscription = () => {
-    navigation.navigate('Purchase');
+    showAlert('Coming Soon', 'Subscription upgrades will be available soon!');
   };
 
   const handleManageSubscription = async () => {
@@ -269,7 +270,7 @@ export default function AccountScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* Usage/Usage */}
+          {/* Usage */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialIcons name="analytics" size={24} color="#2E7D32" />
@@ -317,7 +318,7 @@ export default function AccountScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* Subscription Management - Required by App Stores */}
+          {/* Subscription Management */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialIcons name="settings" size={24} color="#2E7D32" />
@@ -343,7 +344,7 @@ export default function AccountScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* Legal Links - Required by App Stores */}
+          {/* Legal Links */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialIcons name="gavel" size={24} color="#2E7D32" />
