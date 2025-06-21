@@ -2,7 +2,7 @@
   "expo": {
     "name": "Carbie",
     "slug": "carbie",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "carbie",
@@ -31,7 +31,6 @@
     },
     "android": {
       "package": "com.carbie.app",
-      "versionCode": 4,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
