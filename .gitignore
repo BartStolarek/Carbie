@@ -64,3 +64,4 @@ web-build/
 .env
 .env.local
 .env.production
+google-play-service-account.json

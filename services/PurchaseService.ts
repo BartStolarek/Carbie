@@ -1,14 +1,19 @@
 // services/PurchaseService.ts
-import RNIap, {
-  Product,
-  PurchaseError,
-  SubscriptionPurchase,
-  acknowledgePurchaseAndroid,
-  consumePurchaseAndroid,
-  finishTransaction,
-  purchaseErrorListener,
+
+import {
+  initConnection,
+  endConnection,
+  getSubscriptions,
+  requestPurchase,
   purchaseUpdatedListener,
-} from 'react-native-iap';
+  purchaseErrorListener,
+  finishTransaction,
+  getAvailablePurchases,
+  type Product,
+  type SubscriptionPurchase,
+  type PurchaseError,
+  type Purchase,
+} from 'expo-iap';
 import { Platform } from 'react-native';
 
 const itemSubs = Platform.select({
@@ -28,19 +33,17 @@ class PurchaseService {
 
   async initializePurchases(): Promise<boolean> {
     try {
-      const result = await RNIap.initConnection();
+      const result = await initConnection();
       console.log('IAP connection result:', result);
       
-      if (Platform.OS === 'android') {
-        // For Android, we can also use flushFailedPurchasesCachedAsPendingAndroid
-        await RNIap.flushFailedPurchasesCachedAsPendingAndroid();
-      }
+      // Note: expo-iap automatically handles Android failed purchases cleanup
+      // No need for flushFailedPurchasesCachedAsPendingAndroid
 
       // Set up listeners
       this.purchaseUpdateSubscription = purchaseUpdatedListener(
-        async (purchase: SubscriptionPurchase) => {
+        async (purchase: Purchase | SubscriptionPurchase) => {
           console.log('Purchase updated:', purchase);
-          await this.handlePurchaseUpdate(purchase);
+          await this.handlePurchaseUpdate(purchase as SubscriptionPurchase);
         }
       );
 
@@ -59,7 +62,7 @@ class PurchaseService {
 
   async getProducts(): Promise<Product[]> {
     try {
-      const products = await RNIap.getSubscriptions({ skus: itemSubs });
+      const products = await getSubscriptions(itemSubs);
       console.log('Available products:', products);
       return products;
     } catch (error) {
@@ -70,7 +73,18 @@ class PurchaseService {
 
   async purchaseSubscription(sku: string): Promise<void> {
     try {
-      await RNIap.requestSubscription({ sku });
+      // expo-iap uses a different signature for requestPurchase
+      if (Platform.OS === 'android') {
+        await requestPurchase({
+          request: { skus: [sku], subscriptionOffers: [] },
+          type: 'subs'
+        });
+      } else {
+        await requestPurchase({
+          request: { sku },
+          type: 'subs'
+        });
+      }
       // The purchase result will be handled by the purchaseUpdatedListener
     } catch (error) {
       console.error('Purchase failed:', error);
@@ -80,7 +94,7 @@ class PurchaseService {
 
   async restorePurchases(): Promise<SubscriptionPurchase[]> {
     try {
-      const purchases = await RNIap.getAvailablePurchases();
+      const purchases = await getAvailablePurchases();
       console.log('Restored purchases:', purchases);
       
       for (const purchase of purchases) {
@@ -101,20 +115,14 @@ class PurchaseService {
       
       if (receipt) {
         // Send to your backend for verification
-        console.log('Verifying purchase:', purchase.productId);
+        console.log('Verifying purchase:', purchase.id);
         
-        // For Android, acknowledge the purchase
-        if (Platform.OS === 'android') {
-          await acknowledgePurchaseAndroid({
-            token: purchase.purchaseToken || '',
-            developerPayload: purchase.developerPayloadAndroid,
-          });
-        }
-        
-        // For iOS, finish the transaction
-        if (Platform.OS === 'ios') {
-          await finishTransaction({ purchase });
-        }
+        // expo-iap handles platform-specific acknowledgment automatically
+        // when you call finishTransaction
+        await finishTransaction({
+          purchase,
+          isConsumable: false // subscriptions are not consumable
+        });
         
         console.log('Purchase handled successfully');
       }
@@ -135,7 +143,7 @@ class PurchaseService {
         this.purchaseErrorSubscription = null;
       }
       
-      await RNIap.endConnection();
+      await endConnection();
     } catch (error) {
       console.error('Error ending IAP connection:', error);
     }
