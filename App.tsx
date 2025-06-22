@@ -13,6 +13,7 @@ import LoginScreen from './screens/LoginScreen';
 import MainChatScreen from './screens/MainChatScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import AccountScreen from './screens/AccountScreen';
+import SubscriptionPaywallScreen from './screens/SubscriptionPaywallScreen';
 
 import { authService } from './services/AuthService';
 
@@ -67,43 +68,53 @@ export default function App() {
         }}
       >
         {/* Public screens */}
-        <Stack.Screen 
-          name="Welcome" 
+        <Stack.Screen
+          name="Welcome"
           component={WelcomeScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen 
-          name="TrialInfo" 
+        <Stack.Screen
+          name="TrialInfo"
           component={TrialInfoScreen}
           options={{ title: 'Free Trial' }}
         />
-        <Stack.Screen 
-          name="Registration" 
+        <Stack.Screen
+          name="Registration"
           component={RegistrationScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen 
-          name="Login" 
+        <Stack.Screen
+          name="Login"
           component={LoginScreen}
           options={{ headerShown: false }}
         />
-        
+
         {/* Protected screens */}
-        <Stack.Screen 
-          name="MainChat" 
+        <Stack.Screen
+          name="MainChat"
           component={MainChatScreen}
           options={{ headerShown: false }}
         />
-        <Stack.Screen 
-          name="Profile" 
+        <Stack.Screen
+          name="Profile"
           component={ProfileScreen}
           options={{ title: 'Profile' }}
         />
-        <Stack.Screen 
-          name="Account" 
+        <Stack.Screen
+          name="Account"
           component={AccountScreen}
           options={{ title: 'Account' }}
         />
+        <Stack.Screen
+          name="SubscriptionPaywall"
+          component={SubscriptionPaywallScreen}
+          options={{
+            title: 'Upgrade to Premium',
+            headerBackTitle: 'Back',
+            gestureEnabled: false, // Prevent swipe back when trial expired
+          }}
+        />
+
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -10,8 +10,10 @@ import {
   Platform,
   ScrollView,
   Alert,
+  ActivityIndicator, // ← ADDED THIS
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Import the new components
 import FoodInput from '../components/FoodInput';
@@ -22,6 +24,15 @@ import TotalAnalysis from '../components/TotalAnalysis';
 import CarbAbsorptionChart from '../components/CarbAbsorptionChart';
 import MenuDropdown from '../components/MenuDropdown';
 import { authService } from '../services/AuthService';
+
+interface UsageValidationResponse {
+  allowed: boolean;
+  reason?: 'trial_expired' | 'usage_limit' | 'subscription_required';
+  remaining_uses?: number;
+  days_remaining?: number;
+  plan_type?: string;
+  message?: string;
+}
 
 interface IngredientData {
   ingredient: string;
@@ -336,6 +347,7 @@ export default function MainChatScreen({ navigation }: any) {
   const [loadingStatus, setLoadingStatus] = useState('');
   const [fullResponse, setFullResponse] = useState<CarbieResult | null>(null);
   const [analysisMessage, setAnalysisMessage] = useState<string>('');
+  const [accessChecked, setAccessChecked] = useState(false);
 
   // Animate the title scaling in
   const titleScale = useRef(new Animated.Value(0.8)).current;
@@ -347,6 +359,17 @@ export default function MainChatScreen({ navigation }: any) {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkAccess = async () => {
+        const hasAccess = await validateAccess();
+        setAccessChecked(true);
+      };
+
+      checkAccess();
+    }, [])
+  );
 
   const pollJobStatus = async (jobId: string): Promise<CarbieResult | null> => {
     const maxAttempts = 60; // Poll for up to 5 minutes (1s intervals)
@@ -434,7 +457,77 @@ export default function MainChatScreen({ navigation }: any) {
     ];
   };
 
+  const validateAccess = async (): Promise<boolean> => {
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Welcome' }],
+        });
+        return false;
+      }
+
+      // Check usage limits and trial status
+      const response = await apiClient.post<UsageValidationResponse>('/api/v1/usage/validate', {
+        action: 'carbie_estimation'
+      });
+
+      if (response.success && response.data) {
+        if (!response.data.allowed) {
+          // Navigate to paywall with specific reason
+          navigation.navigate('SubscriptionPaywall', {
+            reason: response.data.reason || 'access_denied',
+            daysLeft: response.data.days_remaining,
+            usesLeft: response.data.remaining_uses,
+          });
+          return false;
+        }
+        return true;
+      } else {
+        // STRICT MODE: Any validation failure = access denied
+        console.error('Usage validation failed - access denied:', response.error);
+
+        // Navigate to paywall with generic reason
+        navigation.navigate('SubscriptionPaywall', {
+          reason: response.statusCode === 404 ? 'subscription_required' : 'access_denied',
+          daysLeft: 0,
+          usesLeft: 0,
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('Error validating access - access denied:', error);
+
+      // STRICT MODE: Any error = access denied
+      navigation.navigate('SubscriptionPaywall', {
+        reason: 'subscription_required',
+        daysLeft: 0,
+        usesLeft: 0,
+      });
+      return false;
+    }
+  };
+
+  const recordUsage = async () => {
+    try {
+      await apiClient.post('/api/v1/usage/record', {
+        action: 'carbie_estimation',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error recording usage:', error);
+      // Don't show error to user for usage recording failures
+    }
+  };
+
   const handleSubmit = async () => {
+    // First validate access before processing
+    const hasAccess = await validateAccess();
+    if (!hasAccess) {
+      return; // Access denied, user redirected to paywall
+    }
+
     setLoading(true);
     setResults([]);
     setFullResponse(null);
@@ -445,40 +538,38 @@ export default function MainChatScreen({ navigation }: any) {
       // Check if this is a test prompt
       if (inputText.trim().toLowerCase() === 'test') {
         setLoadingStatus('Processing test request...');
-
-        // Simulate some loading time for test
         await new Promise(resolve => setTimeout(resolve, 1000));
-
         console.log('Using test response');
         setFullResponse(TEST_RESPONSE);
         const parsedResults = parseStructuredResponse(TEST_RESPONSE);
         setResults(parsedResults);
+
+        // Record usage for test requests too
+        await recordUsage();
         return;
       }
 
       if (inputText.trim().toLowerCase() === 'test2') {
         setLoadingStatus('Processing test2 request...');
-
-        // Simulate some loading time for test
         await new Promise(resolve => setTimeout(resolve, 1000));
-
         console.log('Using test response');
         setFullResponse(TEST_RESPONSE2);
         const parsedResults = parseStructuredResponse(TEST_RESPONSE2);
         setResults(parsedResults);
+
+        await recordUsage();
         return;
       }
 
       if (inputText.trim().toLowerCase() === 'test3') {
         setLoadingStatus('Processing test3 request...');
-
-        // Simulate some loading time for test
         await new Promise(resolve => setTimeout(resolve, 1000));
-
         console.log('Using test response');
         setFullResponse(TEST_RESPONSE3);
         const parsedResults = parseStructuredResponse(TEST_RESPONSE3);
         setResults(parsedResults);
+
+        await recordUsage();
         return;
       }
 
@@ -516,6 +607,11 @@ export default function MainChatScreen({ navigation }: any) {
           });
           return;
         }
+        if (response.statusCode === 403) {
+          // Access forbidden - likely usage limit reached
+          const hasAccess = await validateAccess();
+          return; // validateAccess will handle navigation to paywall
+        }
         throw new Error(response.error || 'Failed to submit request');
       }
 
@@ -533,6 +629,9 @@ export default function MainChatScreen({ navigation }: any) {
         setFullResponse(result);
         const parsedResults = parseStructuredResponse(result);
         setResults(parsedResults);
+
+        // Record successful usage
+        await recordUsage();
       } else {
         throw new Error('No result received');
       }
@@ -545,9 +644,25 @@ export default function MainChatScreen({ navigation }: any) {
       );
     } finally {
       setLoading(false);
-      setLoadingStatus('');
+      setInputText('');
+      setImageUri(null);
     }
   };
+
+  // Loading screen while checking access
+  if (!accessChecked) {
+    return (
+      <LinearGradient
+        colors={['#A8E063', '#2E7D32']}
+        style={styles.container}
+      >
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={styles.loadingText}>Checking access...</Text>
+        </View>
+      </LinearGradient>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -635,5 +750,16 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40, // Add padding at bottom for better scrolling
+  },
+  // Added the missing loading styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginTop: 10,
   },
 });

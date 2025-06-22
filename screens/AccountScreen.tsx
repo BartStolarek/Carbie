@@ -1,4 +1,4 @@
-// screens/AccountScreen.tsx
+// screens/AccountScreen.tsx - Enhanced Version
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -38,17 +38,19 @@ const alertPolyfill = (title: string, description?: string, options?: any[], ext
 
 const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
 
-// Mock data - replace with real API calls
 interface SubscriptionInfo {
   type: 'trial' | 'monthly' | 'yearly' | 'expired';
   planName: string;
   status: 'active' | 'expired' | 'cancelled' | 'pending';
   renewalDate?: string;
   trialExpiryDate?: string;
+  trialStartDate?: string;
   price?: string;
   billingCycle?: 'monthly' | 'yearly';
   usageThisMonth: number;
   usageLimit: number; // -1 for unlimited
+  daysLeftInTrial?: number;
+  usesRemainingInTrial?: number;
 }
 
 export default function AccountScreen({ navigation }: any) {
@@ -80,23 +82,35 @@ export default function AccountScreen({ navigation }: any) {
     ]).start();
   }, []);
 
+  // Focus listener to refresh data when returning from subscription screen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadAccountData();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
   const loadAccountData = async () => {
     try {
       const currentUser = await authService.getCurrentUser();
       if (currentUser) {
         setUser(currentUser);
         
-        // Mock subscription data - replace with real API call
+        // Enhanced mock subscription data - replace with real API call
         const mockSubscription: SubscriptionInfo = {
           type: currentUser.user_type === 'trial' ? 'trial' : 'monthly',
           planName: currentUser.user_type === 'trial' ? 'Free Trial' : 'Carbie Premium',
           status: currentUser.is_active ? 'active' : 'expired',
-          trialExpiryDate: currentUser.user_type === 'trial' ? '2025-01-15' : undefined,
+          trialExpiryDate: currentUser.user_type === 'trial' ? '2025-01-29' : undefined,
+          trialStartDate: currentUser.user_type === 'trial' ? '2025-01-22' : undefined,
           renewalDate: currentUser.user_type !== 'trial' ? '2025-02-01' : undefined,
           price: currentUser.user_type === 'trial' ? undefined : '$9.99',
           billingCycle: currentUser.user_type === 'trial' ? undefined : 'monthly',
-          usageThisMonth: 42,
+          usageThisMonth: currentUser.user_type === 'trial' ? 73 : 156,
           usageLimit: currentUser.user_type === 'trial' ? 100 : -1, // -1 = unlimited
+          daysLeftInTrial: currentUser.user_type === 'trial' ? 7 : undefined,
+          usesRemainingInTrial: currentUser.user_type === 'trial' ? 27 : undefined,
         };
         
         setSubscriptionInfo(mockSubscription);
@@ -113,13 +127,51 @@ export default function AccountScreen({ navigation }: any) {
     }
   };
 
-  // Temporary handlers for purchase functionality
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  const getStatusColor = (status: string): string => {
+    switch (status) {
+      case 'active': return '#4CAF50';
+      case 'expired': return '#F44336';
+      case 'cancelled': return '#FF9800';
+      case 'pending': return '#2196F3';
+      default: return '#666';
+    }
+  };
+
+  const getTrialProgress = (): number => {
+    if (!subscriptionInfo?.trialStartDate || !subscriptionInfo?.trialExpiryDate) return 0;
+    
+    const startDate = new Date(subscriptionInfo.trialStartDate).getTime();
+    const endDate = new Date(subscriptionInfo.trialExpiryDate).getTime();
+    const currentDate = new Date().getTime();
+    
+    const totalDuration = endDate - startDate;
+    const elapsed = currentDate - startDate;
+    
+    return Math.min(Math.max((elapsed / totalDuration) * 100, 0), 100);
+  };
+
   const handleSubscribe = () => {
-    showAlert('Coming Soon', 'Subscription functionality will be available soon!');
+    // Navigate to paywall with specific reason
+    navigation.navigate('SubscriptionPaywall', {
+      reason: subscriptionInfo?.type === 'trial' ? 'trial_expired' : 'access_denied',
+      daysLeft: subscriptionInfo?.daysLeftInTrial,
+      usesLeft: subscriptionInfo?.usesRemainingInTrial,
+    });
   };
 
   const handleUpgradeSubscription = () => {
-    showAlert('Coming Soon', 'Subscription upgrades will be available soon!');
+    navigation.navigate('SubscriptionPaywall', {
+      reason: 'access_denied',
+    });
   };
 
   const handleManageSubscription = async () => {
@@ -139,8 +191,24 @@ export default function AccountScreen({ navigation }: any) {
     }
   };
 
-  const handleRestorePurchases = () => {
-    showAlert('Restore Purchases', 'Feature coming soon. Contact support if you need to restore purchases.');
+  const handleRestorePurchases = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.post('/api/v1/subscription/restore', {});
+      
+      if (response.success) {
+        showAlert('Success', 'Purchases restored successfully!');
+        // Reload account data to reflect changes
+        await loadAccountData();
+      } else {
+        showAlert('No Purchases Found', 'No previous purchases were found for this account.');
+      }
+    } catch (error) {
+      console.error('Error restoring purchases:', error);
+      showAlert('Error', 'Failed to restore purchases. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleContactSupport = () => {
@@ -148,7 +216,6 @@ export default function AccountScreen({ navigation }: any) {
   };
 
   const openTermsOfService = async () => {
-    // Replace with your actual Terms of Service URL
     const url = 'https://carbie.com/terms';
     try {
       const supported = await Linking.canOpenURL(url);
@@ -163,7 +230,6 @@ export default function AccountScreen({ navigation }: any) {
   };
 
   const openPrivacyPolicy = async () => {
-    // Replace with your actual Privacy Policy URL
     const url = 'https://carbie.com/privacy';
     try {
       const supported = await Linking.canOpenURL(url);
@@ -179,33 +245,27 @@ export default function AccountScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <LinearGradient colors={['#A8E063', '#2E7D32']} style={styles.loadingContainer}>
+      <LinearGradient
+        colors={['#A8E063', '#2E7D32']}
+        style={styles.loadingContainer}
+      >
         <ActivityIndicator size="large" color="#FFFFFF" />
-        <Text style={styles.loadingText}>Loading Account...</Text>
+        <Text style={styles.loadingText}>Loading account information...</Text>
       </LinearGradient>
     );
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return '#4CAF50';
-      case 'expired': return '#F44336';
-      case 'cancelled': return '#FF9800';
-      default: return '#666';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
+  const trialProgress = getTrialProgress();
+  const isTrialNearExpiry = (subscriptionInfo?.daysLeftInTrial || 0) <= 3;
+  const isUsageNearLimit = subscriptionInfo?.usageLimit !== -1 && 
+    ((subscriptionInfo?.usageThisMonth || 0) / (subscriptionInfo?.usageLimit || 1)) >= 0.8;
 
   return (
-    <LinearGradient colors={['#A8E063', '#2E7D32']} style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+    <LinearGradient
+      colors={['#A8E063', '#2E7D32']}
+      style={styles.container}
+    >
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <Animated.View
           style={[
             styles.accountContainer,
@@ -215,20 +275,84 @@ export default function AccountScreen({ navigation }: any) {
             },
           ]}
         >
-          {/* Account Status Header */}
+          {/* Header Section - Enhanced */}
           <View style={styles.headerSection}>
             <View style={styles.statusContainer}>
-              <MaterialIcons name="account-balance-wallet" size={40} color="#2E7D32" />
+              <View style={styles.avatarContainer}>
+                <MaterialIcons 
+                  name={subscriptionInfo?.type === 'trial' ? 'schedule' : 'star'} 
+                  size={32} 
+                  color="#2E7D32" 
+                />
+              </View>
               <View style={styles.statusTextContainer}>
                 <Text style={styles.planName}>{subscriptionInfo?.planName}</Text>
                 <Text style={[styles.statusText, { color: getStatusColor(subscriptionInfo?.status || '') }]}>
-                  {(subscriptionInfo?.status
-                    ? subscriptionInfo.status.charAt(0).toUpperCase() + subscriptionInfo.status.slice(1)
-                    : '')}
+                  {subscriptionInfo?.status ? 
+                    subscriptionInfo.status.charAt(0).toUpperCase() + subscriptionInfo.status.slice(1)
+                    : ''}
                 </Text>
               </View>
             </View>
+
+            {/* Trial Warning Banner */}
+            {subscriptionInfo?.type === 'trial' && isTrialNearExpiry && (
+              <View style={styles.warningBanner}>
+                <MaterialIcons name="warning" size={20} color="#F57C00" />
+                <Text style={styles.warningText}>
+                  Trial expires in {subscriptionInfo.daysLeftInTrial} days!
+                </Text>
+              </View>
+            )}
           </View>
+
+          {/* Trial Progress Section (only for trial users) */}
+          {subscriptionInfo?.type === 'trial' && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <MaterialIcons name="timeline" size={24} color="#2E7D32" />
+                <Text style={styles.sectionTitle}>Trial Progress</Text>
+              </View>
+              
+              <View style={styles.trialProgressContainer}>
+                <View style={styles.trialProgressHeader}>
+                  <Text style={styles.trialDaysLeft}>
+                    {subscriptionInfo.daysLeftInTrial} days remaining
+                  </Text>
+                  <Text style={styles.trialExpiryDate}>
+                    Expires {formatDate(subscriptionInfo.trialExpiryDate || '')}
+                  </Text>
+                </View>
+                
+                <View style={styles.progressBarContainer}>
+                  <View style={styles.progressBar}>
+                    <View 
+                      style={[
+                        styles.progressFill, 
+                        { 
+                          width: `${trialProgress}%`,
+                          backgroundColor: isTrialNearExpiry ? '#F57C00' : '#4CAF50'
+                        }
+                      ]} 
+                    />
+                  </View>
+                </View>
+                
+                <TouchableOpacity 
+                  style={[
+                    styles.upgradeButton,
+                    isTrialNearExpiry && styles.upgradeButtonUrgent
+                  ]} 
+                  onPress={handleSubscribe}
+                >
+                  <MaterialIcons name="upgrade" size={20} color="#FFFFFF" />
+                  <Text style={styles.upgradeButtonText}>
+                    {isTrialNearExpiry ? 'Upgrade Before Expiry' : 'Upgrade to Premium'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Subscription Details */}
           <View style={styles.section}>
@@ -241,7 +365,12 @@ export default function AccountScreen({ navigation }: any) {
               {subscriptionInfo?.type === 'trial' && subscriptionInfo.trialExpiryDate && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Trial Expires:</Text>
-                  <Text style={styles.detailValue}>{formatDate(subscriptionInfo.trialExpiryDate)}</Text>
+                  <Text style={[
+                    styles.detailValue,
+                    isTrialNearExpiry && { color: '#F57C00', fontWeight: '700' }
+                  ]}>
+                    {formatDate(subscriptionInfo.trialExpiryDate)}
+                  </Text>
                 </View>
               )}
               
@@ -270,7 +399,7 @@ export default function AccountScreen({ navigation }: any) {
             </View>
           </View>
 
-          {/* Usage */}
+          {/* Usage Statistics */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialIcons name="analytics" size={24} color="#2E7D32" />
@@ -279,7 +408,12 @@ export default function AccountScreen({ navigation }: any) {
             
             <View style={styles.creditsContainer}>
               <View style={styles.creditsHeader}>
-                <Text style={styles.creditsRemaining}>{subscriptionInfo?.usageThisMonth}</Text>
+                <Text style={[
+                  styles.creditsRemaining,
+                  isUsageNearLimit && { color: '#F57C00' }
+                ]}>
+                  {subscriptionInfo?.usageThisMonth}
+                </Text>
                 <Text style={styles.creditsLabel}>
                   {subscriptionInfo?.usageLimit === -1 
                     ? 'Unlimited Usage' 
@@ -294,20 +428,33 @@ export default function AccountScreen({ navigation }: any) {
                     <View 
                       style={[
                         styles.progressFill, 
-                        { width: `${((subscriptionInfo?.usageThisMonth || 0) / (subscriptionInfo?.usageLimit || 1)) * 100}%` }
+                        { 
+                          width: `${((subscriptionInfo?.usageThisMonth || 0) / (subscriptionInfo?.usageLimit || 1)) * 100}%`,
+                          backgroundColor: isUsageNearLimit ? '#F57C00' : '#4CAF50'
+                        }
                       ]} 
                     />
                   </View>
-                  <Text style={styles.progressText}>
-                    {(subscriptionInfo?.usageLimit ?? 0) - (subscriptionInfo?.usageThisMonth ?? 0)} uses remaining this month
+                  <Text style={[
+                    styles.progressText,
+                    isUsageNearLimit && { color: '#F57C00', fontWeight: '600' }
+                  ]}>
+                    {(subscriptionInfo?.usageLimit ?? 0) - (subscriptionInfo?.usageThisMonth ?? 0)} uses remaining
+                    {subscriptionInfo?.type === 'trial' && ' in trial'}
                   </Text>
                 </View>
               )}
               
               {subscriptionInfo?.type === 'trial' ? (
-                <TouchableOpacity style={styles.purchaseButton} onPress={handleSubscribe}>
+                <TouchableOpacity 
+                  style={[
+                    styles.purchaseButton,
+                    (isUsageNearLimit || isTrialNearExpiry) && styles.purchaseButtonUrgent
+                  ]} 
+                  onPress={handleSubscribe}
+                >
                   <MaterialIcons name="upgrade" size={20} color="#FFFFFF" />
-                  <Text style={styles.purchaseButtonText}>Subscribe Now</Text>
+                  <Text style={styles.purchaseButtonText}>Subscribe for Unlimited</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity style={styles.purchaseButton} onPress={handleUpgradeSubscription}>
@@ -326,11 +473,13 @@ export default function AccountScreen({ navigation }: any) {
             </View>
             
             <View style={styles.managementContainer}>
-              <TouchableOpacity style={styles.managementButton} onPress={handleManageSubscription}>
-                <MaterialIcons name="edit" size={20} color="#2E7D32" />
-                <Text style={styles.managementButtonText}>Manage Subscription</Text>
-                <MaterialIcons name="open-in-new" size={16} color="#666" />
-              </TouchableOpacity>
+              {subscriptionInfo?.type !== 'trial' && (
+                <TouchableOpacity style={styles.managementButton} onPress={handleManageSubscription}>
+                  <MaterialIcons name="edit" size={20} color="#2E7D32" />
+                  <Text style={styles.managementButtonText}>Manage Subscription</Text>
+                  <MaterialIcons name="open-in-new" size={16} color="#666" />
+                </TouchableOpacity>
+              )}
               
               <TouchableOpacity style={styles.managementButton} onPress={handleRestorePurchases}>
                 <MaterialIcons name="restore" size={20} color="#2E7D32" />
@@ -411,6 +560,7 @@ const styles = StyleSheet.create({
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 15,
   },
   statusTextContainer: {
     marginLeft: 15,
@@ -425,6 +575,71 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  avatarContainer: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 50,
+    padding: 10,
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F57C00',
+  },
+  warningText: {
+    color: '#F57C00',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  
+  // Trial Progress Section
+  trialProgressContainer: {
+    backgroundColor: '#F8FFF8',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E8F5E8',
+  },
+  trialProgressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  trialDaysLeft: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+  trialExpiryDate: {
+    fontSize: 12,
+    color: '#666',
+  },
+  progressBarContainer: {
+    marginBottom: 20,
+  },
+  upgradeButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upgradeButtonUrgent: {
+    backgroundColor: '#F57C00',
+  },
+  upgradeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   
   // Section Styles
@@ -485,9 +700,9 @@ const styles = StyleSheet.create({
     color: '#2E7D32',
   },
   creditsLabel: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
-    marginTop: 5,
+    marginTop: 4,
   },
   progressContainer: {
     width: '100%',
@@ -498,6 +713,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E0E0',
     borderRadius: 4,
     overflow: 'hidden',
+    marginBottom: 8,
   },
   progressFill: {
     height: '100%',
@@ -508,33 +724,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     textAlign: 'center',
-    marginTop: 8,
   },
   purchaseButton: {
+    backgroundColor: '#2E7D32',
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2E7D32',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    gap: 8,
+    justifyContent: 'center',
+  },
+  purchaseButtonUrgent: {
+    backgroundColor: '#F57C00',
   },
   purchaseButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
   },
   
   // Management Container
   managementContainer: {
-    gap: 10,
+    gap: 12,
   },
   managementButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8F8F8',
+    borderRadius: 10,
     padding: 15,
-    borderRadius: 12,
     justifyContent: 'space-between',
   },
   managementButtonText: {
@@ -542,25 +761,24 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 12,
   },
   
   // Legal Container
   legalContainer: {
-    gap: 10,
+    gap: 8,
   },
   legalButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-    padding: 15,
-    borderRadius: 12,
     justifyContent: 'space-between',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 8,
+    padding: 12,
   },
   legalButtonText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#666',
     flex: 1,
   },
 });
