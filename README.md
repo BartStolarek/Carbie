@@ -122,7 +122,7 @@ Test the subscription flow with your test account
 Complete the store listing later when ready for production
 
 Once you've done this manual upload once, all future updates can use:
-basheas submit --platform android --latest
+eas submit --platform android --latest
 
 ## Every other time
 
@@ -171,9 +171,9 @@ Rename the downloaded JSON file to google-play-service-account.json
 Move it to your Carbie project root folder
 Add it to .gitignore:
 
-bashecho "google-play-service-account.json" >> .gitignore
+echo "google-play-service-account.json" >> .gitignore
 7. Try EAS Submit Again
-basheas submit --platform android --latest
+eas submit --platform android --latest
 The most important parts are:
 
 Creating the service account in Google Cloud Console
