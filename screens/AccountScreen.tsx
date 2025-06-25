@@ -347,7 +347,7 @@ export default function AccountScreen({ navigation }: any) {
                 >
                   <MaterialIcons name="upgrade" size={20} color="#FFFFFF" />
                   <Text style={styles.upgradeButtonText}>
-                    {isTrialNearExpiry ? 'Upgrade Before Expiry' : 'Upgrade to Premium'}
+                    {isTrialNearExpiry ? 'Purchase Before Expiry' : 'Purchase'}
                   </Text>
                 </TouchableOpacity>
               </View>

@@ -109,7 +109,7 @@ export default function App() {
           name="SubscriptionPaywall"
           component={SubscriptionPaywallScreen}
           options={{
-            title: 'Upgrade to Premium',
+            title: 'Purchase',
             headerBackTitle: 'Back',
             gestureEnabled: false, // Prevent swipe back when trial expired
           }}
