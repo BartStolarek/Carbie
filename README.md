@@ -124,6 +124,20 @@ Complete the store listing later when ready for production
 Once you've done this manual upload once, all future updates can use:
 eas submit --platform android --latest
 
+### Saving Secrets File to EAS
+
+To save your secrets file to EAS, you can use the following command:
+`eas env:create --name GOOGLE_PLAY_SERVICE_ACCOUNT_JSON --value "$(cat google-play-service-account.json)" --scope project`
+
+To list environment variables, use:
+`eas env:list`
+
+To update an existing enviornment variable, use:
+`eas env:update --name GOOGLE_PLAY_SERVICE_ACCOUNT_JSON --value "$(cat new-file.json)" --scope project`
+
+View a specific environment variable:
+`eas env:get --name GOOGLE_PLAY_SERVICE_ACCOUNT_JSON --scope project`
+
 ## Every other time
 
 Perfect! This is the detailed guide from Expo. Let me break down the key steps you need to follow:
