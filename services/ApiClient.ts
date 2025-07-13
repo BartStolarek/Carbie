@@ -1,7 +1,7 @@
 // services/ApiClient.ts
 import { Platform } from 'react-native';
 
-const API_BASE_URL = 'https://bartstolarek.com';
+const API_BASE_URL = 'https://test.bartstolarek.com';
 
 export interface ApiResponse<T = any> {
   success: boolean;

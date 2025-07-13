@@ -11,12 +11,12 @@ import {
   Easing,
   ActivityIndicator,
   Platform,
-  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { authService, User } from '../services/AuthService';
 import { apiClient } from '../services/ApiClient';
+import { purchaseService } from '../services/PurchaseService';
 
 // Cross-platform alert function
 const alertPolyfill = (title: string, description?: string, options?: any[], extra?: any) => {
@@ -40,6 +40,7 @@ const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
 
 interface SubscriptionPlan {
   id: string;
+  productId: string; // Google Play product ID
   name: string;
   price: string;
   period: string;
@@ -51,6 +52,7 @@ interface SubscriptionPlan {
 const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
     id: 'monthly',
+    productId: 'carbie_monthly_subscription', // Google Play Console product ID
     name: 'Monthly',
     price: '$9.99',
     period: 'per month',
@@ -62,9 +64,10 @@ const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     ]
   },
   {
-    id: 'Quarterly',
-    name: 'Quarterly',
-    price: '$24.88',
+    id: 'yearly',
+    productId: 'carbie_yearly_subscription', // Google Play Console product ID
+    name: 'Yearly',
+    price: '$99.99',
     period: 'per year',
     popular: true,
     savings: 'Save 17%',
@@ -83,7 +86,7 @@ interface PaywallScreenProps {
   navigation: any;
   route?: {
     params?: {
-      reason?: 'trial_expired' | 'usage_limit' | 'access_denied';
+      reason?: 'trial_expired' | 'usage_limit' | 'access_denied' | 'subscription_expired';
       daysLeft?: number;
       usesLeft?: number;
     };
@@ -106,6 +109,7 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
 
   useEffect(() => {
     loadUserData();
+    initializePurchases();
     
     // Start animations
     Animated.parallel([
@@ -135,6 +139,64 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
     }
   };
 
+  const initializePurchases = async () => {
+    try {
+      await purchaseService.initializePurchases();
+      
+      // Set up purchase listener
+      purchaseService.setPurchaseListener(handlePurchaseUpdate);
+    } catch (error) {
+      console.error('Failed to initialize purchases:', error);
+    }
+  };
+
+  const handlePurchaseUpdate = async (purchase: any) => {
+    try {
+      console.log('Purchase update received:', purchase);
+      
+      // Verify purchase with your backend
+      const response = await apiClient.post('/api/v1/subscription/verify-purchase', {
+        purchase_token: purchase.purchaseToken || purchase.transactionReceipt,
+        product_id: purchase.productId || purchase.subscriptionId,
+        transaction_id: purchase.transactionId || purchase.transactionIdentifier,
+        platform: Platform.OS,
+      });
+
+      if (response.success) {
+        showAlert(
+          'Success!', 
+          'Your subscription has been activated. Welcome to Carbie Premium!',
+          [
+            { 
+              text: 'OK', 
+              onPress: () => {
+                // Navigate back to main app
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainChat' }],
+                });
+              }
+            }
+          ]
+        );
+      } else {
+        showAlert(
+          'Verification Failed', 
+          'We couldn\'t verify your purchase. Please try "Restore Purchases" or contact support.',
+          [
+            { text: 'Restore Purchases', onPress: handleRestorePurchases },
+            { text: 'Contact Support', onPress: () => showAlert('Support', 'Email: support@carbie.com') },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Purchase verification failed:', error);
+      showAlert('Error', 'Failed to verify purchase. Please contact support if this continues.');
+    } finally {
+      setPurchasing(null);
+    }
+  };
+
   const getPaywallMessage = () => {
     switch (reason) {
       case 'trial_expired':
@@ -143,10 +205,16 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
           subtitle: 'Continue enjoying unlimited carb estimates with a subscription',
           icon: 'schedule'
         };
+      case 'subscription_expired':
+        return {
+          title: 'Your Subscription Has Expired',
+          subtitle: 'Renew your subscription to continue using Carbie',
+          icon: 'refresh'
+        };
       case 'usage_limit':
         return {
           title: 'You\'ve Reached Your Usage Limit',
-          subtitle: `You've used all ${100 - usesLeft} of your trial uses. Upgrade for unlimited access.`,
+          subtitle: `You've used all your trial uses. Upgrade for unlimited access.`,
           icon: 'analytics'
         };
       default:
@@ -162,39 +230,34 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
     setPurchasing(planId);
     
     try {
-      // First, initiate the purchase through the store
-      const storeUrl = Platform.OS === 'ios' 
-        ? `https://apps.apple.com/app/carbie/id123456789?plan=${planId}`
-        : `https://play.google.com/store/apps/details?id=com.carbie.app&plan=${planId}`;
-      
-      const supported = await Linking.canOpenURL(storeUrl);
-      if (supported) {
-        await Linking.openURL(storeUrl);
-        
-        // Show message about completing purchase
-        showAlert(
-          'Complete Your Purchase', 
-          'Complete your purchase in the store, then return to the app to verify your subscription.',
-          [
-            { 
-              text: 'I Completed Purchase', 
-              onPress: () => handleVerifyPurchase(planId)
-            },
-            { 
-              text: 'Cancel', 
-              style: 'cancel',
-              onPress: () => navigation.goBack()
-            }
-          ]
-        );
-      } else {
-        showAlert('Error', 'Cannot open store for purchase');
+      // Find the plan and get the product ID
+      const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+      if (!plan) {
+        throw new Error('Invalid plan selected');
       }
+
+      console.log(`Initiating purchase for product: ${plan.productId}`);
+      
+      // Use PurchaseService to handle the actual purchase
+      await purchaseService.purchaseSubscription(plan.productId);
+      
+      // Purchase result will be handled by the purchase listener
+      
     } catch (error) {
       console.error('Purchase error:', error);
-      showAlert('Error', 'Failed to initiate purchase. Please try again.');
-    } finally {
       setPurchasing(null);
+      
+      let errorMessage = 'Failed to process purchase. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('cancelled') || error.message.includes('canceled')) {
+          errorMessage = 'Purchase was cancelled.';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        }
+      }
+      
+      showAlert('Purchase Error', errorMessage);
     }
   };
 
@@ -202,9 +265,15 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
     try {
       setLoading(true);
       
+      // Find the plan and get the product ID
+      const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
+      if (!plan) {
+        throw new Error('Invalid plan selected');
+      }
+      
       // Call API to verify and activate subscription
       const response = await apiClient.post('/api/v1/subscription/verify-purchase', {
-        product_id: planId,
+        product_id: plan.productId,
         platform: Platform.OS,
       });
 
@@ -248,30 +317,40 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
     try {
       setLoading(true);
       
-      const response = await apiClient.post('/api/v1/subscription/restore', {});
+      // Try to restore purchases through the purchase service
+      const restoredPurchases = await purchaseService.restorePurchases();
       
-      if (response.success && response.data?.subscription_found) {
-        showAlert(
-          'Purchases Restored!', 
-          'Your subscription has been restored successfully.',
-          [
-            { 
-              text: 'OK', 
-              onPress: () => {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'MainChat' }],
-                });
+      if (restoredPurchases && restoredPurchases.length > 0) {
+        // Also call your API to restore purchases
+        const response = await apiClient.post('/api/v1/subscription/restore', {
+          platform: Platform.OS,
+        });
+        
+        if (response.success && response.data?.subscription_found) {
+          showAlert(
+            'Purchases Restored!', 
+            'Your subscription has been restored successfully.',
+            [
+              { 
+                text: 'OK', 
+                onPress: () => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'MainChat' }],
+                  });
+                }
               }
-            }
-          ]
-        );
+            ]
+          );
+        } else {
+          showAlert('No Active Subscription', 'No active subscription was found for this account.');
+        }
       } else {
         showAlert('No Purchases Found', 'No previous purchases were found for this account.');
       }
     } catch (error) {
       console.error('Restore error:', error);
-      showAlert('Error', 'Failed to restore purchases');
+      showAlert('Error', 'Failed to restore purchases. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -398,7 +477,7 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
               <Text style={styles.restoreButtonText}>Restore Purchases</Text>
             </TouchableOpacity>
             
-            {reason !== 'trial_expired' && (
+            {reason !== 'trial_expired' && reason !== 'subscription_expired' && (
               <TouchableOpacity
                 style={styles.backButton}
                 onPress={() => navigation.goBack()}
@@ -413,6 +492,7 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
           <View style={styles.termsSection}>
             <Text style={styles.termsText}>
               Subscriptions auto-renew unless cancelled. You can cancel anytime in your device settings.
+              {'\n'}By subscribing, you agree to our Terms of Service and Privacy Policy.
             </Text>
           </View>
         </Animated.View>

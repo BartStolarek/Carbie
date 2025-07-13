@@ -469,7 +469,7 @@ export default function MainChatScreen({ navigation }: any) {
       }
 
       // Check usage limits and trial status
-      const response = await apiClient.post<UsageValidationResponse>('/api/v1/usage/validate', {
+      const response = await apiClient.post<UsageValidationResponse>('/api/v1/access/validate', {
         action: 'carbie_estimation'
       });
 
