@@ -198,6 +198,12 @@ class PurchaseService {
     try {
       console.log('Handling purchase update:', purchase);
       
+      // Validate purchase data
+      if (!purchase.productId) {
+        console.error('Purchase missing productId:', purchase);
+        return;
+      }
+      
       // Call the listener if it's set
       if (this.purchaseListener) {
         this.purchaseListener(purchase);
@@ -205,15 +211,23 @@ class PurchaseService {
       
       // Finish the transaction (only on native platforms)
       if (Platform.OS !== 'web' && iapModule) {
-        await iapModule.finishTransaction({
-          purchase,
-          isConsumable: false // subscriptions are not consumable
-        });
+        try {
+          await iapModule.finishTransaction({
+            purchase,
+            isConsumable: false // subscriptions are not consumable
+          });
+          console.log('Transaction finished successfully');
+        } catch (finishError) {
+          console.error('Error finishing transaction:', finishError);
+          // Don't throw here - the purchase was successful, just couldn't finish
+        }
       }
       
       console.log('Purchase handled successfully');
     } catch (error) {
       console.error('Error handling purchase:', error);
+      // Re-throw to let the caller handle it
+      throw error;
     }
   }
 

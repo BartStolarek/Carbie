@@ -153,32 +153,71 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
   const handlePurchaseUpdate = async (purchase: any) => {
     try {
       console.log('Purchase update received:', purchase);
-      
-      // Verify purchase with your backend
-      const response = await apiClient.post('/api/v1/subscription/verify-purchase', {
+      const requestBody = {
+        product_id: purchase.productId,
         purchase_token: purchase.purchaseToken || purchase.transactionReceipt,
-        product_id: purchase.productId || purchase.subscriptionId,
-        transaction_id: purchase.transactionId || purchase.transactionIdentifier,
         platform: Platform.OS,
-      });
+        transaction_id: purchase.transactionId || purchase.transactionIdentifier,
+      };
+      console.log('Sending to verify-purchase:', requestBody);
+      // Verify purchase with your backend using the correct API structure
+      const response = await apiClient.post('/api/v1/carbie/subscription/verify-purchase', requestBody);
+      console.log('Verify-purchase response:', response);
+      if (!response.success && response.data && response.data.detail) {
+        console.error('Verify-purchase error detail:', response.data.detail);
+      }
 
       if (response.success) {
-        showAlert(
-          'Success!', 
-          'Your subscription has been activated. Welcome to Carbie Premium!',
-          [
-            { 
-              text: 'OK', 
-              onPress: () => {
-                // Navigate back to main app
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'MainChat' }],
-                });
+        // After successful verification, validate access to confirm subscription is active
+        try {
+          const accessResponse = await apiClient.get('/api/v1/carbie/access-validate');
+          
+          if (accessResponse.success && accessResponse.data?.access_granted) {
+            showAlert(
+              'Success!', 
+              'Your subscription has been activated. Welcome to Carbie Premium!',
+              [
+                { 
+                  text: 'OK', 
+                  onPress: () => {
+                    // Navigate back to main app
+                    navigation.reset({
+                      index: 0,
+                      routes: [{ name: 'MainChat' }],
+                    });
+                  }
+                }
+              ]
+            );
+          } else {
+            // Access validation failed - this shouldn't happen after successful purchase
+            showAlert(
+              'Verification Issue', 
+              'Purchase verified but access not granted. Please contact support.',
+              [
+                { text: 'Contact Support', onPress: () => showAlert('Support', 'Email: support@carbie.com') },
+              ]
+            );
+          }
+        } catch (accessError) {
+          console.error('Access validation failed after purchase:', accessError);
+          // Still show success but warn about potential issues
+          showAlert(
+            'Purchase Verified', 
+            'Your purchase was verified successfully. If you experience any issues, please contact support.',
+            [
+              { 
+                text: 'OK', 
+                onPress: () => {
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'MainChat' }],
+                  });
+                }
               }
-            }
-          ]
-        );
+            ]
+          );
+        }
       } else {
         showAlert(
           'Verification Failed', 
@@ -272,9 +311,11 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
       }
       
       // Call API to verify and activate subscription
-      const response = await apiClient.post('/api/v1/subscription/verify-purchase', {
+      const response = await apiClient.post('/api/v1/carbie/subscription/verify-purchase', {
         product_id: plan.productId,
         platform: Platform.OS,
+        // Note: This function is for manual verification without a purchase token
+        // It should only be used for testing or special cases
       });
 
       if (response.success) {
@@ -316,37 +357,30 @@ export default function SubscriptionPaywallScreen({ navigation, route }: Paywall
   const handleRestorePurchases = async () => {
     try {
       setLoading(true);
-      
-      // Try to restore purchases through the purchase service
-      const restoredPurchases = await purchaseService.restorePurchases();
-      
-      if (restoredPurchases && restoredPurchases.length > 0) {
-        // Also call your API to restore purchases
-        const response = await apiClient.post('/api/v1/subscription/restore', {
-          platform: Platform.OS,
-        });
-        
-        if (response.success && response.data?.subscription_found) {
-          showAlert(
-            'Purchases Restored!', 
-            'Your subscription has been restored successfully.',
-            [
-              { 
-                text: 'OK', 
-                onPress: () => {
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'MainChat' }],
-                  });
-                }
+      console.log('Calling /api/v1/carbie/access-validate for restore');
+      const response = await apiClient.get('/api/v1/carbie/access-validate');
+      console.log('Restore response:', response);
+      if (!response.success && response.data && response.data.detail) {
+        console.error('Restore access-validate error detail:', response.data.detail);
+      }
+      if (response.success && response.data?.access_granted) {
+        showAlert(
+          'Purchases Restored!',
+          'Your subscription has been restored successfully.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainChat' }],
+                });
               }
-            ]
-          );
-        } else {
-          showAlert('No Active Subscription', 'No active subscription was found for this account.');
-        }
+            }
+          ]
+        );
       } else {
-        showAlert('No Purchases Found', 'No previous purchases were found for this account.');
+        showAlert('No Active Subscription', 'No active subscription was found for this account.');
       }
     } catch (error) {
       console.error('Restore error:', error);

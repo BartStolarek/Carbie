@@ -1,6 +1,6 @@
 // screens/PurchaseScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import { purchaseService } from '../services/PurchaseService';
 import { apiClient } from '../services/ApiClient';
 
@@ -36,11 +36,12 @@ export default function PurchaseScreen({ navigation }: any) {
 
   const handlePurchaseUpdate = async (purchase: any) => {
     try {
-      // Verify purchase with your backend
-      const response = await apiClient.post('/api/v1/purchases/verify', {
-        receipt: purchase.transactionReceipt,
-        productId: purchase.productId,
-        transactionId: purchase.transactionIdentifier,
+      // Verify purchase with your backend using the correct endpoint
+      const response = await apiClient.post('/api/v1/carbie/subscription/verify-purchase', {
+        product_id: purchase.productId,
+        purchase_token: purchase.purchaseToken || purchase.transactionReceipt,
+        platform: Platform.OS,
+        transaction_id: purchase.transactionId || purchase.transactionIdentifier,
       });
 
       if (response.success) {

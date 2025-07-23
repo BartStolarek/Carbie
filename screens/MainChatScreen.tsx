@@ -26,12 +26,23 @@ import MenuDropdown from '../components/MenuDropdown';
 import { authService } from '../services/AuthService';
 
 interface UsageValidationResponse {
-  allowed: boolean;
-  reason?: 'trial_expired' | 'usage_limit' | 'subscription_required';
+  access_granted: boolean;
+  user_type?: 'paid' | 'trial' | 'unverified';
+  reason?: 'trial_expired' | 'usage_limit' | 'subscription_required' | 'access_denied';
   remaining_uses?: number;
   days_remaining?: number;
   plan_type?: string;
   message?: string;
+  subscription?: {
+    status: string;
+    expires_at: string;
+    product_id: string;
+  };
+  trial?: {
+    days_remaining: number;
+    expires_at: string;
+  };
+  detail?: string; // Added for error details
 }
 
 interface IngredientData {
@@ -461,6 +472,7 @@ export default function MainChatScreen({ navigation }: any) {
     try {
       const user = await authService.getCurrentUser();
       if (!user) {
+        console.log('No user found, navigating to Welcome');
         navigation.reset({
           index: 0,
           routes: [{ name: 'Welcome' }],
@@ -468,14 +480,16 @@ export default function MainChatScreen({ navigation }: any) {
         return false;
       }
 
-      // Check usage limits and trial status
-      const response = await apiClient.post<UsageValidationResponse>('/api/v1/access/validate', {
-        action: 'carbie_estimation'
-      });
+      console.log('Calling /api/v1/carbie/access-validate');
+      const response = await apiClient.get<UsageValidationResponse>('/api/v1/carbie/access-validate');
+      console.log('Access-validate response:', response);
+      if (!response.success && response.data && response.data.detail) {
+        console.error('Access-validate error detail:', response.data.detail);
+      }
 
       if (response.success && response.data) {
-        if (!response.data.allowed) {
-          // Navigate to paywall with specific reason
+        if (!response.data.access_granted) {
+          console.log('Access denied, navigating to SubscriptionPaywall:', response.data.reason);
           navigation.navigate('SubscriptionPaywall', {
             reason: response.data.reason || 'access_denied',
             daysLeft: response.data.days_remaining,
@@ -487,8 +501,10 @@ export default function MainChatScreen({ navigation }: any) {
       } else {
         // STRICT MODE: Any validation failure = access denied
         console.error('Usage validation failed - access denied:', response.error);
-
-        // Navigate to paywall with generic reason
+        if (response.data && response.data.detail) {
+          console.error('Access-validate error detail:', response.data.detail);
+        }
+        console.log('Navigating to SubscriptionPaywall due to failed validation');
         navigation.navigate('SubscriptionPaywall', {
           reason: response.statusCode === 404 ? 'subscription_required' : 'access_denied',
           daysLeft: 0,
@@ -498,26 +514,13 @@ export default function MainChatScreen({ navigation }: any) {
       }
     } catch (error) {
       console.error('Error validating access - access denied:', error);
-
-      // STRICT MODE: Any error = access denied
+      console.log('Navigating to SubscriptionPaywall due to error');
       navigation.navigate('SubscriptionPaywall', {
         reason: 'subscription_required',
         daysLeft: 0,
         usesLeft: 0,
       });
       return false;
-    }
-  };
-
-  const recordUsage = async () => {
-    try {
-      await apiClient.post('/api/v1/usage/record', {
-        action: 'carbie_estimation',
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error('Error recording usage:', error);
-      // Don't show error to user for usage recording failures
     }
   };
 
@@ -544,8 +547,6 @@ export default function MainChatScreen({ navigation }: any) {
         const parsedResults = parseStructuredResponse(TEST_RESPONSE);
         setResults(parsedResults);
 
-        // Record usage for test requests too
-        await recordUsage();
         return;
       }
 
@@ -557,7 +558,6 @@ export default function MainChatScreen({ navigation }: any) {
         const parsedResults = parseStructuredResponse(TEST_RESPONSE2);
         setResults(parsedResults);
 
-        await recordUsage();
         return;
       }
 
@@ -569,7 +569,6 @@ export default function MainChatScreen({ navigation }: any) {
         const parsedResults = parseStructuredResponse(TEST_RESPONSE3);
         setResults(parsedResults);
 
-        await recordUsage();
         return;
       }
 
@@ -630,8 +629,7 @@ export default function MainChatScreen({ navigation }: any) {
         const parsedResults = parseStructuredResponse(result);
         setResults(parsedResults);
 
-        // Record successful usage
-        await recordUsage();
+
       } else {
         throw new Error('No result received');
       }

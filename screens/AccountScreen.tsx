@@ -194,14 +194,18 @@ export default function AccountScreen({ navigation }: any) {
   const handleRestorePurchases = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.post('/api/v1/subscription/restore', {});
-      
-      if (response.success) {
-        showAlert('Success', 'Purchases restored successfully!');
+      console.log('Calling /api/v1/carbie/access-validate for restore');
+      const response = await apiClient.get('/api/v1/carbie/access-validate');
+      console.log('Restore response:', response);
+      if (!response.success && response.data && response.data.detail) {
+        console.error('Restore access-validate error detail:', response.data.detail);
+      }
+      if (response.success && response.data?.access_granted) {
+        showAlert('Purchases Restored!', 'Your subscription has been restored successfully.');
         // Reload account data to reflect changes
         await loadAccountData();
       } else {
-        showAlert('No Purchases Found', 'No previous purchases were found for this account.');
+        showAlert('No Active Subscription', 'No active subscription was found for this account.');
       }
     } catch (error) {
       console.error('Error restoring purchases:', error);
