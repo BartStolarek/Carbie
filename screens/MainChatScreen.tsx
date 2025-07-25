@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 // Import the new components
 import FoodInput from '../components/FoodInput';
@@ -349,6 +350,39 @@ const alertPolyfill = (title: string, description?: string, options?: any[], ext
 };
 
 const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
+
+// async function presentPaywall(): Promise<boolean> {
+//   // Present paywall for current offering:
+//   const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
+//   // or if you need to present a specific offering:
+//   const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
+//     offering: offering // Optional Offering object obtained through getOfferings
+//   });
+
+//   switch (paywallResult) {
+//     case PAYWALL_RESULT.NOT_PRESENTED:
+//     case PAYWALL_RESULT.ERROR:
+//     case PAYWALL_RESULT.CANCELLED:
+//       return false;
+//     case PAYWALL_RESULT.PURCHASED:
+//     case PAYWALL_RESULT.RESTORED:
+//       return true;
+//     default:
+//       return false;
+//   }
+// }
+
+// async function presentPaywallIfNeeded() {
+//   // Present paywall for current offering:
+//   const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
+//     requiredEntitlementIdentifier: "pro"
+//   });
+//   // If you need to present a specific offering:
+//   const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
+//     offering: offering, // Optional Offering object obtained through getOfferings
+//     requiredEntitlementIdentifier: "pro"
+//   });
+// }
 
 export default function MainChatScreen({ navigation }: any) {
   const [inputText, setInputText] = useState('');

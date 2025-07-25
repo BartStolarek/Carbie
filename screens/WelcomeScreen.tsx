@@ -46,7 +46,7 @@ export default function WelcomeScreen({ navigation }: any) {
       <Animated.View style={{ opacity: buttonOpacity }}>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => navigation.navigate('TrialInfo')}
+          onPress={() => navigation.navigate('Registration')}
           activeOpacity={0.8}
         >
           <Text style={styles.buttonText}>Get Started</Text>

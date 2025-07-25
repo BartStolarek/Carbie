@@ -7,13 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 
 import WelcomeScreen from './screens/WelcomeScreen';
-import TrialInfoScreen from './screens/TrialInfoScreen';
 import RegistrationScreen from './screens/RegistrationScreen';
 import LoginScreen from './screens/LoginScreen';
 import MainChatScreen from './screens/MainChatScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import AccountScreen from './screens/AccountScreen';
-import SubscriptionPaywallScreen from './screens/SubscriptionPaywallScreen';
 
 import { authService } from './services/AuthService';
 
@@ -74,11 +72,6 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="TrialInfo"
-          component={TrialInfoScreen}
-          options={{ title: 'Free Trial' }}
-        />
-        <Stack.Screen
           name="Registration"
           component={RegistrationScreen}
           options={{ headerShown: false }}
@@ -105,15 +98,7 @@ export default function App() {
           component={AccountScreen}
           options={{ title: 'Account' }}
         />
-        <Stack.Screen
-          name="SubscriptionPaywall"
-          component={SubscriptionPaywallScreen}
-          options={{
-            title: 'Purchase',
-            headerBackTitle: 'Back',
-            gestureEnabled: false, // Prevent swipe back when trial expired
-          }}
-        />
+        
 
       </Stack.Navigator>
     </NavigationContainer>

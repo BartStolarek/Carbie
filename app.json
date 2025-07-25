@@ -48,8 +48,7 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-image-picker",
-      "expo-iap"
+      "expo-image-picker"
     ],
     "extra": {
       "eas": {
