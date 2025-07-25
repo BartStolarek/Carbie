@@ -10,11 +10,12 @@ import {
   Platform,
   ScrollView,
   Alert,
-  ActivityIndicator, // ← ADDED THIS
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import Purchases from 'react-native-purchases';
 
 // Import the new components
 import FoodInput from '../components/FoodInput';
@@ -25,26 +26,9 @@ import TotalAnalysis from '../components/TotalAnalysis';
 import CarbAbsorptionChart from '../components/CarbAbsorptionChart';
 import MenuDropdown from '../components/MenuDropdown';
 import { authService } from '../services/AuthService';
+import { revenueCatService } from '../services/RevenueCatService';
 
-interface UsageValidationResponse {
-  access_granted: boolean;
-  user_type?: 'paid' | 'trial' | 'unverified';
-  reason?: 'trial_expired' | 'usage_limit' | 'subscription_required' | 'access_denied';
-  remaining_uses?: number;
-  days_remaining?: number;
-  plan_type?: string;
-  message?: string;
-  subscription?: {
-    status: string;
-    expires_at: string;
-    product_id: string;
-  };
-  trial?: {
-    days_remaining: number;
-    expires_at: string;
-  };
-  detail?: string; // Added for error details
-}
+
 
 interface IngredientData {
   ingredient: string;
@@ -351,38 +335,110 @@ const alertPolyfill = (title: string, description?: string, options?: any[], ext
 
 const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
 
-// async function presentPaywall(): Promise<boolean> {
-//   // Present paywall for current offering:
-//   const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
-//   // or if you need to present a specific offering:
-//   const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
-//     offering: offering // Optional Offering object obtained through getOfferings
-//   });
+// RevenueCat Paywall Functions
+async function presentPaywall(): Promise<boolean> {
+  try {
+    console.log('Presenting RevenueCat paywall...');
+    const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
+    
+    console.log('Paywall result:', paywallResult);
+    
+    switch (paywallResult) {
+      case PAYWALL_RESULT.NOT_PRESENTED:
+      case PAYWALL_RESULT.ERROR:
+      case PAYWALL_RESULT.CANCELLED:
+        console.log('Paywall not presented, error, or cancelled');
+        return false;
+      case PAYWALL_RESULT.PURCHASED:
+      case PAYWALL_RESULT.RESTORED:
+        console.log('Purchase successful or restored');
+        return true;
+      default:
+        console.log('Unknown paywall result:', paywallResult);
+        return false;
+    }
+  } catch (error) {
+    console.error('Error presenting paywall:', error);
+    return false;
+  }
+}
 
-//   switch (paywallResult) {
-//     case PAYWALL_RESULT.NOT_PRESENTED:
-//     case PAYWALL_RESULT.ERROR:
-//     case PAYWALL_RESULT.CANCELLED:
-//       return false;
-//     case PAYWALL_RESULT.PURCHASED:
-//     case PAYWALL_RESULT.RESTORED:
-//       return true;
-//     default:
-//       return false;
-//   }
-// }
+async function presentPaywallIfNeeded(): Promise<boolean> {
+  try {
+    console.log('Presenting RevenueCat paywall if needed...');
+    const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
+      requiredEntitlementIdentifier: "pro"
+    });
+    
+    console.log('Paywall if needed result:', paywallResult);
+    
+    switch (paywallResult) {
+      case PAYWALL_RESULT.NOT_PRESENTED:
+      case PAYWALL_RESULT.ERROR:
+      case PAYWALL_RESULT.CANCELLED:
+        console.log('Paywall not presented, error, or cancelled');
+        return false;
+      case PAYWALL_RESULT.PURCHASED:
+      case PAYWALL_RESULT.RESTORED:
+        console.log('Purchase successful or restored');
+        return true;
+      default:
+        console.log('Unknown paywall result:', paywallResult);
+        return false;
+    }
+  } catch (error) {
+    console.error('Error presenting paywall if needed:', error);
+    return false;
+  }
+}
 
-// async function presentPaywallIfNeeded() {
-//   // Present paywall for current offering:
-//   const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
-//     requiredEntitlementIdentifier: "pro"
-//   });
-//   // If you need to present a specific offering:
-//   const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
-//     offering: offering, // Optional Offering object obtained through getOfferings
-//     requiredEntitlementIdentifier: "pro"
-//   });
-// }
+// Function to present paywall for specific offering (Monthly Subscription Paywall)
+async function presentMonthlySubscriptionPaywall(): Promise<boolean> {
+  try {
+    console.log('Presenting Monthly Subscription Paywall for offering: default_version1...');
+    
+    // Try to get the specific offering first
+    try {
+      const offerings = await Purchases.getOfferings();
+      const defaultOffering = offerings.current;
+      
+      if (defaultOffering) {
+        console.log('Found default offering, presenting paywall...');
+        const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
+          offering: defaultOffering
+        });
+        
+        console.log('Monthly subscription paywall result:', paywallResult);
+        
+        switch (paywallResult) {
+          case PAYWALL_RESULT.NOT_PRESENTED:
+          case PAYWALL_RESULT.ERROR:
+          case PAYWALL_RESULT.CANCELLED:
+            console.log('Monthly subscription paywall not presented, error, or cancelled');
+            return false;
+          case PAYWALL_RESULT.PURCHASED:
+          case PAYWALL_RESULT.RESTORED:
+            console.log('Monthly subscription purchase successful or restored');
+            return true;
+          default:
+            console.log('Unknown monthly subscription paywall result:', paywallResult);
+            return false;
+        }
+      } else {
+        console.log('No default offering found, falling back to regular paywall...');
+        // Fallback to regular paywall
+        return await presentPaywall();
+      }
+    } catch (offeringError) {
+      console.error('Error getting offerings, falling back to regular paywall:', offeringError);
+      // Fallback to regular paywall
+      return await presentPaywall();
+    }
+  } catch (error) {
+    console.error('Error presenting monthly subscription paywall:', error);
+    return false;
+  }
+}
 
 export default function MainChatScreen({ navigation }: any) {
   const [inputText, setInputText] = useState('');
@@ -393,6 +449,7 @@ export default function MainChatScreen({ navigation }: any) {
   const [fullResponse, setFullResponse] = useState<CarbieResult | null>(null);
   const [analysisMessage, setAnalysisMessage] = useState<string>('');
   const [accessChecked, setAccessChecked] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // Animate the title scaling in
   const titleScale = useRef(new Animated.Value(0.8)).current;
@@ -407,12 +464,8 @@ export default function MainChatScreen({ navigation }: any) {
 
   useFocusEffect(
     React.useCallback(() => {
-      const checkAccess = async () => {
-        const hasAccess = await validateAccess();
-        setAccessChecked(true);
-      };
-
-      checkAccess();
+      // No need to check access on focus since RevenueCat handles it
+      setAccessChecked(true);
     }, [])
   );
 
@@ -514,46 +567,23 @@ export default function MainChatScreen({ navigation }: any) {
         return false;
       }
 
-      console.log('Calling /api/v1/carbie/access-validate');
-      const response = await apiClient.get<UsageValidationResponse>('/api/v1/carbie/access-validate');
-      console.log('Access-validate response:', response);
-      if (!response.success && response.data && response.data.detail) {
-        console.error('Access-validate error detail:', response.data.detail);
-      }
-
-      if (response.success && response.data) {
-        if (!response.data.access_granted) {
-          console.log('Access denied, navigating to SubscriptionPaywall:', response.data.reason);
-          navigation.navigate('SubscriptionPaywall', {
-            reason: response.data.reason || 'access_denied',
-            daysLeft: response.data.days_remaining,
-            usesLeft: response.data.remaining_uses,
-          });
-          return false;
-        }
+      // Use RevenueCat to check if user has access to premium features
+      console.log('Checking RevenueCat entitlements...');
+      const customerInfo = await Purchases.getCustomerInfo();
+      
+      // Check if user has the "pro" entitlement (or whatever your entitlement identifier is)
+      const isActive = customerInfo.entitlements.active['Active'] !== undefined;
+      
+      if (isActive) {
+        console.log('User has active access via RevenueCat');
         return true;
       } else {
-        // STRICT MODE: Any validation failure = access denied
-        console.error('Usage validation failed - access denied:', response.error);
-        if (response.data && response.data.detail) {
-          console.error('Access-validate error detail:', response.data.detail);
-        }
-        console.log('Navigating to SubscriptionPaywall due to failed validation');
-        navigation.navigate('SubscriptionPaywall', {
-          reason: response.statusCode === 404 ? 'subscription_required' : 'access_denied',
-          daysLeft: 0,
-          usesLeft: 0,
-        });
+        console.log('User does not have active access, will present paywall');
         return false;
       }
     } catch (error) {
-      console.error('Error validating access - access denied:', error);
-      console.log('Navigating to SubscriptionPaywall due to error');
-      navigation.navigate('SubscriptionPaywall', {
-        reason: 'subscription_required',
-        daysLeft: 0,
-        usesLeft: 0,
-      });
+      console.error('Error checking RevenueCat entitlements:', error);
+      // If RevenueCat fails, assume no access and present paywall
       return false;
     }
   };
@@ -562,7 +592,38 @@ export default function MainChatScreen({ navigation }: any) {
     // First validate access before processing
     const hasAccess = await validateAccess();
     if (!hasAccess) {
-      return; // Access denied, user redirected to paywall
+      // Try to present RevenueCat paywall if access is denied
+      console.log('Access denied, attempting to present RevenueCat paywall...');
+      setShowPaywall(true);
+      
+      // First try the "if needed" version
+      let paywallResult = await presentPaywallIfNeeded();
+      
+      // If that doesn't work, try the regular paywall
+      if (!paywallResult) {
+        console.log('Paywall if needed failed, trying regular paywall...');
+        paywallResult = await presentPaywall();
+      }
+      
+      // If that still doesn't work, try the monthly subscription paywall
+      if (!paywallResult) {
+        console.log('Regular paywall failed, trying monthly subscription paywall...');
+        paywallResult = await presentMonthlySubscriptionPaywall();
+      }
+      
+      setShowPaywall(false);
+      
+      if (paywallResult) {
+        console.log('Paywall purchase successful, retrying access validation...');
+        // Re-validate access after successful purchase
+        const newAccess = await validateAccess();
+        if (!newAccess) {
+          return; // Still no access, user will be redirected to paywall
+        }
+      } else {
+        console.log('All paywall attempts failed or were cancelled');
+        return; // User cancelled or all paywall attempts failed
+      }
     }
 
     setLoading(true);
@@ -639,11 +700,6 @@ export default function MainChatScreen({ navigation }: any) {
             routes: [{ name: 'Welcome' }],
           });
           return;
-        }
-        if (response.statusCode === 403) {
-          // Access forbidden - likely usage limit reached
-          const hasAccess = await validateAccess();
-          return; // validateAccess will handle navigation to paywall
         }
         throw new Error(response.error || 'Failed to submit request');
       }
@@ -723,6 +779,7 @@ export default function MainChatScreen({ navigation }: any) {
             loading={loading}
             loadingStatus={loadingStatus}
             onSubmit={handleSubmit}
+            showPaywall={showPaywall}
           />
 
           {/* Analysis Message Component */}

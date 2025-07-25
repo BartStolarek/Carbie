@@ -42,6 +42,7 @@ interface FoodInputProps {
   loading: boolean;
   loadingStatus: string;
   onSubmit: () => void;
+  showPaywall?: boolean; // Optional prop to show when paywall is being presented
 }
 
 export default function FoodInput({
@@ -52,6 +53,7 @@ export default function FoodInput({
   loading,
   loadingStatus,
   onSubmit,
+  showPaywall = false,
 }: FoodInputProps) {
   
   // Image Picker Helpers
@@ -121,9 +123,9 @@ export default function FoodInput({
         </View>
 
         <TouchableOpacity
-          style={[styles.submitButton, loading && styles.buttonDisabled]}
+          style={[styles.submitButton, (loading || showPaywall) && styles.buttonDisabled]}
           onPress={handleSubmitPress}
-          disabled={loading}
+          disabled={loading || showPaywall}
           activeOpacity={0.8}
         >
           {loading ? (
@@ -131,6 +133,13 @@ export default function FoodInput({
               <ActivityIndicator color="#2E7D32" />
               <Text style={[styles.submitButtonText, { marginLeft: 8 }]}>
                 {loadingStatus || 'Processing...'}
+              </Text>
+            </View>
+          ) : showPaywall ? (
+            <View style={styles.loadingContent}>
+              <ActivityIndicator color="#2E7D32" />
+              <Text style={[styles.submitButtonText, { marginLeft: 8 }]}>
+                Checking Subscription...
               </Text>
             </View>
           ) : (
