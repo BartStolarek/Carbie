@@ -32,11 +32,30 @@ export default function App() {
       // Initialize RevenueCat
       console.log('Initializing RevenueCat...');
       const apiKey = Platform.OS === 'ios' ? REVENUECAT_CONFIG.API_KEY_IOS : REVENUECAT_CONFIG.API_KEY_ANDROID;
+      console.log('Using RevenueCat API key:', apiKey);
+      console.log('Platform:', Platform.OS);
+      
       await Purchases.configure({
         apiKey: apiKey,
         appUserID: null, // Will be set when user logs in
       });
       console.log('RevenueCat initialized successfully');
+      
+      // Test RevenueCat configuration
+      try {
+        const customerInfo = await Purchases.getCustomerInfo();
+        console.log('RevenueCat customer info:', customerInfo);
+        
+        // Check offerings
+        const offerings = await Purchases.getOfferings();
+        console.log('RevenueCat offerings:', {
+          current: offerings.current?.identifier,
+          available: Object.keys(offerings.all),
+          all: offerings.all
+        });
+      } catch (error) {
+        console.error('Error getting RevenueCat customer info:', error);
+      }
 
       // Check authentication status
       const authenticated = await authService.isAuthenticated();

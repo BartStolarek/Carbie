@@ -1,5 +1,4 @@
 // services/LoggingService.ts
-import { EventEmitter } from 'events';
 
 export interface LogMessage {
   id: string;
@@ -9,9 +8,12 @@ export interface LogMessage {
   data?: any;
 }
 
-class LoggingService extends EventEmitter {
+type LogListener = (log: LogMessage) => void;
+
+class LoggingService {
   private logs: LogMessage[] = [];
   private maxLogs = 100; // Keep only last 100 logs
+  private listeners: LogListener[] = [];
 
   // Add a log message
   log(level: LogMessage['level'], message: string, data?: any) {
@@ -30,8 +32,8 @@ class LoggingService extends EventEmitter {
       this.logs = this.logs.slice(-this.maxLogs);
     }
 
-    // Emit event for components to listen to
-    this.emit('logAdded', logMessage);
+    // Notify all listeners
+    this.listeners.forEach(listener => listener(logMessage));
 
     // Also log to console for development
     if (__DEV__) {
@@ -67,7 +69,12 @@ class LoggingService extends EventEmitter {
   // Clear logs
   clearLogs() {
     this.logs = [];
-    this.emit('logsCleared');
+    this.listeners.forEach(listener => listener({
+      id: 'clear',
+      timestamp: new Date(),
+      level: 'info',
+      message: 'Logs cleared',
+    }));
   }
 
   // Get logs by level
@@ -78,6 +85,19 @@ class LoggingService extends EventEmitter {
   // Get recent logs (last N)
   getRecentLogs(count: number): LogMessage[] {
     return this.logs.slice(-count);
+  }
+
+  // Add listener
+  addListener(listener: LogListener) {
+    this.listeners.push(listener);
+  }
+
+  // Remove listener
+  removeListener(listener: LogListener) {
+    const index = this.listeners.indexOf(listener);
+    if (index > -1) {
+      this.listeners.splice(index, 1);
+    }
   }
 }
 

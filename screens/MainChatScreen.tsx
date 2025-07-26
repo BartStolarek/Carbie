@@ -341,19 +341,39 @@ const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
 async function presentPaywall(): Promise<boolean> {
   try {
     loggingService.info('Presenting RevenueCat paywall...');
+    
+    // Check if RevenueCatUI is available
+    if (!RevenueCatUI) {
+      loggingService.error('RevenueCatUI is not available');
+      return false;
+    }
+    
+    // Check if presentPaywall method exists
+    if (typeof RevenueCatUI.presentPaywall !== 'function') {
+      loggingService.error('RevenueCatUI.presentPaywall is not a function');
+      return false;
+    }
+    
+    loggingService.info('Calling RevenueCatUI.presentPaywall()...');
     const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
     
     loggingService.info('Paywall result:', paywallResult);
     
     switch (paywallResult) {
       case PAYWALL_RESULT.NOT_PRESENTED:
+        loggingService.warn('Paywall NOT_PRESENTED - this usually means no offerings are configured');
+        return false;
       case PAYWALL_RESULT.ERROR:
+        loggingService.error('Paywall ERROR occurred');
+        return false;
       case PAYWALL_RESULT.CANCELLED:
-        loggingService.warn('Paywall not presented, error, or cancelled');
+        loggingService.warn('Paywall was cancelled by user');
         return false;
       case PAYWALL_RESULT.PURCHASED:
+        loggingService.info('Purchase successful');
+        return true;
       case PAYWALL_RESULT.RESTORED:
-        loggingService.info('Purchase successful or restored');
+        loggingService.info('Purchase restored');
         return true;
       default:
         loggingService.warn('Unknown paywall result:', paywallResult);
@@ -487,12 +507,7 @@ export default function MainChatScreen({ navigation }: any) {
       setLogs(loggingService.getLogs());
     };
 
-    const handleLogsCleared = () => {
-      setLogs([]);
-    };
-
-    loggingService.on('logAdded', handleLogAdded);
-    loggingService.on('logsCleared', handleLogsCleared);
+    loggingService.addListener(handleLogAdded);
 
     // Initialize logs
     setLogs(loggingService.getLogs());
@@ -501,8 +516,7 @@ export default function MainChatScreen({ navigation }: any) {
     loggingService.info('Debug panel initialized and ready');
 
     return () => {
-      loggingService.off('logAdded', handleLogAdded);
-      loggingService.off('logsCleared', handleLogsCleared);
+      loggingService.removeListener(handleLogAdded);
     };
   }, []);
 
@@ -536,6 +550,18 @@ export default function MainChatScreen({ navigation }: any) {
       try {
         await Purchases.logIn(user.id.toString());
         loggingService.info('RevenueCat user ID set to:', user.id);
+        
+        // Check RevenueCat configuration after login
+        try {
+          const offerings = await Purchases.getOfferings();
+          loggingService.info('RevenueCat offerings:', {
+            current: offerings.current?.identifier,
+            available: Object.keys(offerings.all),
+            all: offerings.all
+          });
+        } catch (offeringsError) {
+          loggingService.error('Error getting RevenueCat offerings:', offeringsError);
+        }
       } catch (error) {
         loggingService.error('Error setting RevenueCat user ID:', error);
       }
@@ -695,14 +721,25 @@ export default function MainChatScreen({ navigation }: any) {
       loggingService.info('Checking RevenueCat entitlements...');
       const customerInfo = await Purchases.getCustomerInfo();
       
+      loggingService.info('Customer info:', {
+        originalAppUserId: customerInfo.originalAppUserId,
+        entitlements: customerInfo.entitlements,
+        activeSubscriptions: customerInfo.activeSubscriptions,
+        allPurchaseDates: customerInfo.allPurchaseDates
+      });
+      
       // Check if user has the entitlement
-      const isActive = customerInfo.entitlements.active[REVENUECAT_CONFIG.ENTITLEMENT_ID] !== undefined;
+      const entitlementId = REVENUECAT_CONFIG.ENTITLEMENT_ID;
+      loggingService.info('Looking for entitlement:', entitlementId);
+      
+      const isActive = customerInfo.entitlements.active[entitlementId] !== undefined;
       
       if (isActive) {
         loggingService.info('User has active subscription via RevenueCat');
         return true;
       } else {
         loggingService.warn('User does not have active subscription, will present paywall');
+        loggingService.info('Available entitlements:', Object.keys(customerInfo.entitlements.active));
         return false;
       }
     } catch (error) {
@@ -911,14 +948,14 @@ export default function MainChatScreen({ navigation }: any) {
             <CarbAbsorptionChart ingredients={fullResponse.structured_data.ingredients} />
           )}
 
-          {/* Debug Panel Component */}
-          <DebugPanel 
-            fullResponse={fullResponse} 
-            logs={logs}
-            initiallyExpanded={true} 
-          />
-
         </ScrollView>
+
+        {/* Debug Panel Component - Outside ScrollView, always visible */}
+        <DebugPanel 
+          fullResponse={fullResponse} 
+          logs={logs}
+          initiallyExpanded={true} 
+        />
       </LinearGradient>
     </View>
   );
@@ -950,6 +987,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    marginBottom: 10, // Add space for debug panel
   },
   scrollContent: {
     paddingHorizontal: 20,

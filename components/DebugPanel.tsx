@@ -1,4 +1,4 @@
-git add // components/DebugPanel.tsx
+// components/DebugPanel.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -203,7 +203,8 @@ const styles = StyleSheet.create({
   debugContainer: {
     backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 10,
-    marginBottom: 15,
+    marginHorizontal: 20,
+    marginBottom: 10,
     borderWidth: 3,
     borderColor: '#FF5722', // More visible red border
     shadowColor: '#000',
