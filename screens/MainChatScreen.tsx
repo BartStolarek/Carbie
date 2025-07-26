@@ -27,6 +27,7 @@ import CarbAbsorptionChart from '../components/CarbAbsorptionChart';
 import MenuDropdown from '../components/MenuDropdown';
 import { authService } from '../services/AuthService';
 import { revenueCatService } from '../services/RevenueCatService';
+import { REVENUECAT_CONFIG } from '../config/revenuecat';
 
 
 
@@ -359,6 +360,7 @@ async function presentPaywall(): Promise<boolean> {
     }
   } catch (error) {
     console.error('Error presenting paywall:', error);
+    // Don't crash the app, just return false
     return false;
   }
 }
@@ -366,9 +368,9 @@ async function presentPaywall(): Promise<boolean> {
 async function presentPaywallIfNeeded(): Promise<boolean> {
   try {
     console.log('Presenting RevenueCat paywall if needed...');
-    const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
-      requiredEntitlementIdentifier: "pro"
-    });
+          const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
+        requiredEntitlementIdentifier: REVENUECAT_CONFIG.ENTITLEMENT_ID
+      });
     
     console.log('Paywall if needed result:', paywallResult);
     
@@ -388,6 +390,7 @@ async function presentPaywallIfNeeded(): Promise<boolean> {
     }
   } catch (error) {
     console.error('Error presenting paywall if needed:', error);
+    // Don't crash the app, just return false
     return false;
   }
 }
@@ -436,6 +439,7 @@ async function presentMonthlySubscriptionPaywall(): Promise<boolean> {
     }
   } catch (error) {
     console.error('Error presenting monthly subscription paywall:', error);
+    // Don't crash the app, just return false
     return false;
   }
 }
@@ -464,10 +468,101 @@ export default function MainChatScreen({ navigation }: any) {
 
   useFocusEffect(
     React.useCallback(() => {
-      // No need to check access on focus since RevenueCat handles it
-      setAccessChecked(true);
+      // Check access and present paywall if needed when screen loads
+      checkAccessOnLoad();
     }, [])
   );
+
+  const checkAccessOnLoad = async () => {
+    try {
+      console.log('Checking authentication and subscription on screen load...');
+      
+      // First, check if user is authenticated with your API
+      const isAuthenticated = await authService.isAuthenticated();
+      if (!isAuthenticated) {
+        console.log('User not authenticated, redirecting to login...');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Welcome' }],
+        });
+        return;
+      }
+
+      // Get current user to set RevenueCat user ID
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        console.log('Could not get user info, redirecting to login...');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Welcome' }],
+        });
+        return;
+      }
+
+      // Set RevenueCat user ID to match your user system
+      try {
+        await Purchases.logIn(user.id.toString());
+        console.log('RevenueCat user ID set to:', user.id);
+      } catch (error) {
+        console.error('Error setting RevenueCat user ID:', error);
+      }
+
+      // Now check subscription status
+      const hasSubscription = await validateSubscription();
+      if (!hasSubscription) {
+        console.log('No subscription detected, presenting paywall...');
+        setShowPaywall(true);
+        
+        // Try to present paywall
+        let paywallResult = false;
+        
+        try {
+          // First try the "if needed" version
+          paywallResult = await presentPaywallIfNeeded();
+        } catch (error) {
+          console.error('Error with presentPaywallIfNeeded:', error);
+        }
+        
+        // If that doesn't work, try the regular paywall
+        if (!paywallResult) {
+          try {
+            console.log('Trying regular paywall...');
+            paywallResult = await presentPaywall();
+          } catch (error) {
+            console.error('Error with presentPaywall:', error);
+          }
+        }
+        
+        // If that still doesn't work, try the monthly subscription paywall
+        if (!paywallResult) {
+          try {
+            console.log('Trying monthly subscription paywall...');
+            paywallResult = await presentMonthlySubscriptionPaywall();
+          } catch (error) {
+            console.error('Error with presentMonthlySubscriptionPaywall:', error);
+          }
+        }
+        
+        setShowPaywall(false);
+        
+        if (paywallResult) {
+          console.log('Paywall purchase successful');
+          // Re-validate subscription after successful purchase
+          const newSubscription = await validateSubscription();
+          if (!newSubscription) {
+            console.log('Still no subscription after purchase');
+          }
+        } else {
+          console.log('All paywall attempts failed or were cancelled');
+        }
+      }
+      
+      setAccessChecked(true);
+    } catch (error) {
+      console.error('Error checking access on load:', error);
+      setAccessChecked(true); // Still set to true to prevent infinite loading
+    }
+  };
 
   const pollJobStatus = async (jobId: string): Promise<CarbieResult | null> => {
     const maxAttempts = 60; // Poll for up to 5 minutes (1s intervals)
@@ -555,75 +650,47 @@ export default function MainChatScreen({ navigation }: any) {
     ];
   };
 
-  const validateAccess = async (): Promise<boolean> => {
+  const validateSubscription = async (): Promise<boolean> => {
     try {
-      const user = await authService.getCurrentUser();
-      if (!user) {
-        console.log('No user found, navigating to Welcome');
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Welcome' }],
-        });
-        return false;
-      }
-
       // Use RevenueCat to check if user has access to premium features
       console.log('Checking RevenueCat entitlements...');
       const customerInfo = await Purchases.getCustomerInfo();
       
-      // Check if user has the "pro" entitlement (or whatever your entitlement identifier is)
-      const isActive = customerInfo.entitlements.active['Active'] !== undefined;
+      // Check if user has the entitlement
+      const isActive = customerInfo.entitlements.active[REVENUECAT_CONFIG.ENTITLEMENT_ID] !== undefined;
       
       if (isActive) {
-        console.log('User has active access via RevenueCat');
+        console.log('User has active subscription via RevenueCat');
         return true;
       } else {
-        console.log('User does not have active access, will present paywall');
+        console.log('User does not have active subscription, will present paywall');
         return false;
       }
     } catch (error) {
       console.error('Error checking RevenueCat entitlements:', error);
-      // If RevenueCat fails, assume no access and present paywall
+      // If RevenueCat fails, assume no subscription and present paywall
       return false;
     }
   };
 
   const handleSubmit = async () => {
-    // First validate access before processing
-    const hasAccess = await validateAccess();
-    if (!hasAccess) {
-      // Try to present RevenueCat paywall if access is denied
-      console.log('Access denied, attempting to present RevenueCat paywall...');
-      setShowPaywall(true);
-      
-      // First try the "if needed" version
-      let paywallResult = await presentPaywallIfNeeded();
-      
-      // If that doesn't work, try the regular paywall
-      if (!paywallResult) {
-        console.log('Paywall if needed failed, trying regular paywall...');
-        paywallResult = await presentPaywall();
-      }
-      
-      // If that still doesn't work, try the monthly subscription paywall
-      if (!paywallResult) {
-        console.log('Regular paywall failed, trying monthly subscription paywall...');
-        paywallResult = await presentMonthlySubscriptionPaywall();
-      }
-      
-      setShowPaywall(false);
-      
-      if (paywallResult) {
-        console.log('Paywall purchase successful, retrying access validation...');
-        // Re-validate access after successful purchase
-        const newAccess = await validateAccess();
-        if (!newAccess) {
-          return; // Still no access, user will be redirected to paywall
-        }
-      } else {
-        console.log('All paywall attempts failed or were cancelled');
-        return; // User cancelled or all paywall attempts failed
-      }
+    // Check authentication first
+    const isAuthenticated = await authService.isAuthenticated();
+    if (!isAuthenticated) {
+      console.log('User not authenticated, redirecting to login...');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Welcome' }],
+      });
+      return;
+    }
+
+    // Check subscription status
+    const hasSubscription = await validateSubscription();
+    if (!hasSubscription) {
+      console.log('No subscription, user needs to purchase subscription');
+      showAlert('Subscription Required', 'Please purchase a subscription to use this feature.');
+      return;
     }
 
     setLoading(true);
@@ -779,7 +846,6 @@ export default function MainChatScreen({ navigation }: any) {
             loading={loading}
             loadingStatus={loadingStatus}
             onSubmit={handleSubmit}
-            showPaywall={showPaywall}
           />
 
           {/* Analysis Message Component */}

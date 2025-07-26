@@ -2,9 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import Purchases from 'react-native-purchases';
 
 import WelcomeScreen from './screens/WelcomeScreen';
 import RegistrationScreen from './screens/RegistrationScreen';
@@ -14,6 +15,7 @@ import ProfileScreen from './screens/ProfileScreen';
 import AccountScreen from './screens/AccountScreen';
 
 import { authService } from './services/AuthService';
+import { REVENUECAT_CONFIG } from './config/revenuecat';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,15 +24,25 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    checkAuthStatus();
+    initializeApp();
   }, []);
 
-  const checkAuthStatus = async () => {
+  const initializeApp = async () => {
     try {
+      // Initialize RevenueCat
+      console.log('Initializing RevenueCat...');
+      const apiKey = Platform.OS === 'ios' ? REVENUECAT_CONFIG.API_KEY_IOS : REVENUECAT_CONFIG.API_KEY_ANDROID;
+      await Purchases.configure({
+        apiKey: apiKey,
+        appUserID: null, // Will be set when user logs in
+      });
+      console.log('RevenueCat initialized successfully');
+
+      // Check authentication status
       const authenticated = await authService.isAuthenticated();
       setIsAuthenticated(authenticated);
     } catch (error) {
-      console.error('Error checking auth status:', error);
+      console.error('Error initializing app:', error);
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);

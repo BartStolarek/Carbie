@@ -126,7 +126,19 @@ class AuthService {
     if (response.success && response.data) {
       await this.setToken(response.data.access_token);
       // Get user info after login
-      await this.getCurrentUser();
+      const user = await this.getCurrentUser();
+      
+      // Set RevenueCat user ID if user was retrieved successfully
+      if (user) {
+        try {
+          const Purchases = require('react-native-purchases').default;
+          await Purchases.logIn(user.id.toString());
+          console.log('RevenueCat user ID set to:', user.id);
+        } catch (error) {
+          console.error('Error setting RevenueCat user ID:', error);
+        }
+      }
+      
       return { success: true };
     } else {
       return { 
@@ -174,6 +186,15 @@ class AuthService {
 
   // Logout
   async logout(): Promise<void> {
+    // Logout from RevenueCat
+    try {
+      const Purchases = require('react-native-purchases').default;
+      await Purchases.logOut();
+      console.log('Logged out from RevenueCat');
+    } catch (error) {
+      console.error('Error logging out from RevenueCat:', error);
+    }
+    
     await this.removeToken();
   }
 
