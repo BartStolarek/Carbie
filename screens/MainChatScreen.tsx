@@ -20,7 +20,7 @@ import Purchases from 'react-native-purchases';
 // Import the new components
 import FoodInput from '../components/FoodInput';
 import AnalysisMessage from '../components/AnalysisMessage';
-import DebugResponse from '../components/DebugResponse';
+import DebugPanel from '../components/DebugPanel';
 import IngredientsTable, { ResultItem } from '../components/IngredientsTable';
 import TotalAnalysis from '../components/TotalAnalysis';
 import CarbAbsorptionChart from '../components/CarbAbsorptionChart';
@@ -28,6 +28,7 @@ import MenuDropdown from '../components/MenuDropdown';
 import { authService } from '../services/AuthService';
 import { revenueCatService } from '../services/RevenueCatService';
 import { REVENUECAT_CONFIG } from '../config/revenuecat';
+import { loggingService, LogMessage } from '../services/LoggingService';
 
 
 
@@ -339,27 +340,27 @@ const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
 // RevenueCat Paywall Functions
 async function presentPaywall(): Promise<boolean> {
   try {
-    console.log('Presenting RevenueCat paywall...');
+    loggingService.info('Presenting RevenueCat paywall...');
     const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
     
-    console.log('Paywall result:', paywallResult);
+    loggingService.info('Paywall result:', paywallResult);
     
     switch (paywallResult) {
       case PAYWALL_RESULT.NOT_PRESENTED:
       case PAYWALL_RESULT.ERROR:
       case PAYWALL_RESULT.CANCELLED:
-        console.log('Paywall not presented, error, or cancelled');
+        loggingService.warn('Paywall not presented, error, or cancelled');
         return false;
       case PAYWALL_RESULT.PURCHASED:
       case PAYWALL_RESULT.RESTORED:
-        console.log('Purchase successful or restored');
+        loggingService.info('Purchase successful or restored');
         return true;
       default:
-        console.log('Unknown paywall result:', paywallResult);
+        loggingService.warn('Unknown paywall result:', paywallResult);
         return false;
     }
   } catch (error) {
-    console.error('Error presenting paywall:', error);
+    loggingService.error('Error presenting paywall:', error);
     // Don't crash the app, just return false
     return false;
   }
@@ -367,29 +368,29 @@ async function presentPaywall(): Promise<boolean> {
 
 async function presentPaywallIfNeeded(): Promise<boolean> {
   try {
-    console.log('Presenting RevenueCat paywall if needed...');
-          const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
-        requiredEntitlementIdentifier: REVENUECAT_CONFIG.ENTITLEMENT_ID
-      });
+    loggingService.info('Presenting RevenueCat paywall if needed...');
+    const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
+      requiredEntitlementIdentifier: REVENUECAT_CONFIG.ENTITLEMENT_ID
+    });
     
-    console.log('Paywall if needed result:', paywallResult);
+    loggingService.info('Paywall if needed result:', paywallResult);
     
     switch (paywallResult) {
       case PAYWALL_RESULT.NOT_PRESENTED:
       case PAYWALL_RESULT.ERROR:
       case PAYWALL_RESULT.CANCELLED:
-        console.log('Paywall not presented, error, or cancelled');
+        loggingService.warn('Paywall not presented, error, or cancelled');
         return false;
       case PAYWALL_RESULT.PURCHASED:
       case PAYWALL_RESULT.RESTORED:
-        console.log('Purchase successful or restored');
+        loggingService.info('Purchase successful or restored');
         return true;
       default:
-        console.log('Unknown paywall result:', paywallResult);
+        loggingService.warn('Unknown paywall result:', paywallResult);
         return false;
     }
   } catch (error) {
-    console.error('Error presenting paywall if needed:', error);
+    loggingService.error('Error presenting paywall if needed:', error);
     // Don't crash the app, just return false
     return false;
   }
@@ -398,7 +399,7 @@ async function presentPaywallIfNeeded(): Promise<boolean> {
 // Function to present paywall for specific offering (Monthly Subscription Paywall)
 async function presentMonthlySubscriptionPaywall(): Promise<boolean> {
   try {
-    console.log('Presenting Monthly Subscription Paywall for offering: default_version1...');
+    loggingService.info('Presenting Monthly Subscription Paywall for offering: default_version1...');
     
     // Try to get the specific offering first
     try {
@@ -406,39 +407,39 @@ async function presentMonthlySubscriptionPaywall(): Promise<boolean> {
       const defaultOffering = offerings.current;
       
       if (defaultOffering) {
-        console.log('Found default offering, presenting paywall...');
+        loggingService.info('Found default offering, presenting paywall...');
         const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
           offering: defaultOffering
         });
         
-        console.log('Monthly subscription paywall result:', paywallResult);
+        loggingService.info('Monthly subscription paywall result:', paywallResult);
         
         switch (paywallResult) {
           case PAYWALL_RESULT.NOT_PRESENTED:
           case PAYWALL_RESULT.ERROR:
           case PAYWALL_RESULT.CANCELLED:
-            console.log('Monthly subscription paywall not presented, error, or cancelled');
+            loggingService.warn('Monthly subscription paywall not presented, error, or cancelled');
             return false;
           case PAYWALL_RESULT.PURCHASED:
           case PAYWALL_RESULT.RESTORED:
-            console.log('Monthly subscription purchase successful or restored');
+            loggingService.info('Monthly subscription purchase successful or restored');
             return true;
           default:
-            console.log('Unknown monthly subscription paywall result:', paywallResult);
+            loggingService.warn('Unknown monthly subscription paywall result:', paywallResult);
             return false;
         }
       } else {
-        console.log('No default offering found, falling back to regular paywall...');
+        loggingService.warn('No default offering found, falling back to regular paywall...');
         // Fallback to regular paywall
         return await presentPaywall();
       }
     } catch (offeringError) {
-      console.error('Error getting offerings, falling back to regular paywall:', offeringError);
+      loggingService.error('Error getting offerings, falling back to regular paywall:', offeringError);
       // Fallback to regular paywall
       return await presentPaywall();
     }
   } catch (error) {
-    console.error('Error presenting monthly subscription paywall:', error);
+    loggingService.error('Error presenting monthly subscription paywall:', error);
     // Don't crash the app, just return false
     return false;
   }
@@ -454,6 +455,7 @@ export default function MainChatScreen({ navigation }: any) {
   const [analysisMessage, setAnalysisMessage] = useState<string>('');
   const [accessChecked, setAccessChecked] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [logs, setLogs] = useState<LogMessage[]>([]);
 
   // Animate the title scaling in
   const titleScale = useRef(new Animated.Value(0.8)).current;
@@ -473,14 +475,36 @@ export default function MainChatScreen({ navigation }: any) {
     }, [])
   );
 
+  // Listen to log events
+  useEffect(() => {
+    const handleLogAdded = () => {
+      setLogs(loggingService.getLogs());
+    };
+
+    const handleLogsCleared = () => {
+      setLogs([]);
+    };
+
+    loggingService.on('logAdded', handleLogAdded);
+    loggingService.on('logsCleared', handleLogsCleared);
+
+    // Initialize logs
+    setLogs(loggingService.getLogs());
+
+    return () => {
+      loggingService.off('logAdded', handleLogAdded);
+      loggingService.off('logsCleared', handleLogsCleared);
+    };
+  }, []);
+
   const checkAccessOnLoad = async () => {
     try {
-      console.log('Checking authentication and subscription on screen load...');
+      loggingService.info('Checking authentication and subscription on screen load...');
       
       // First, check if user is authenticated with your API
       const isAuthenticated = await authService.isAuthenticated();
       if (!isAuthenticated) {
-        console.log('User not authenticated, redirecting to login...');
+        loggingService.warn('User not authenticated, redirecting to login...');
         navigation.reset({
           index: 0,
           routes: [{ name: 'Welcome' }],
@@ -491,7 +515,7 @@ export default function MainChatScreen({ navigation }: any) {
       // Get current user to set RevenueCat user ID
       const user = await authService.getCurrentUser();
       if (!user) {
-        console.log('Could not get user info, redirecting to login...');
+        loggingService.warn('Could not get user info, redirecting to login...');
         navigation.reset({
           index: 0,
           routes: [{ name: 'Welcome' }],
@@ -502,15 +526,15 @@ export default function MainChatScreen({ navigation }: any) {
       // Set RevenueCat user ID to match your user system
       try {
         await Purchases.logIn(user.id.toString());
-        console.log('RevenueCat user ID set to:', user.id);
+        loggingService.info('RevenueCat user ID set to:', user.id);
       } catch (error) {
-        console.error('Error setting RevenueCat user ID:', error);
+        loggingService.error('Error setting RevenueCat user ID:', error);
       }
 
       // Now check subscription status
       const hasSubscription = await validateSubscription();
       if (!hasSubscription) {
-        console.log('No subscription detected, presenting paywall...');
+        loggingService.warn('No subscription detected, presenting paywall...');
         setShowPaywall(true);
         
         // Try to present paywall
@@ -520,46 +544,46 @@ export default function MainChatScreen({ navigation }: any) {
           // First try the "if needed" version
           paywallResult = await presentPaywallIfNeeded();
         } catch (error) {
-          console.error('Error with presentPaywallIfNeeded:', error);
+          loggingService.error('Error with presentPaywallIfNeeded:', error);
         }
         
         // If that doesn't work, try the regular paywall
         if (!paywallResult) {
           try {
-            console.log('Trying regular paywall...');
+            loggingService.info('Trying regular paywall...');
             paywallResult = await presentPaywall();
           } catch (error) {
-            console.error('Error with presentPaywall:', error);
+            loggingService.error('Error with presentPaywall:', error);
           }
         }
         
         // If that still doesn't work, try the monthly subscription paywall
         if (!paywallResult) {
           try {
-            console.log('Trying monthly subscription paywall...');
+            loggingService.info('Trying monthly subscription paywall...');
             paywallResult = await presentMonthlySubscriptionPaywall();
           } catch (error) {
-            console.error('Error with presentMonthlySubscriptionPaywall:', error);
+            loggingService.error('Error with presentMonthlySubscriptionPaywall:', error);
           }
         }
         
         setShowPaywall(false);
         
         if (paywallResult) {
-          console.log('Paywall purchase successful');
+          loggingService.info('Paywall purchase successful');
           // Re-validate subscription after successful purchase
           const newSubscription = await validateSubscription();
           if (!newSubscription) {
-            console.log('Still no subscription after purchase');
+            loggingService.warn('Still no subscription after purchase');
           }
         } else {
-          console.log('All paywall attempts failed or were cancelled');
+          loggingService.warn('All paywall attempts failed or were cancelled');
         }
       }
       
       setAccessChecked(true);
     } catch (error) {
-      console.error('Error checking access on load:', error);
+      loggingService.error('Error checking access on load:', error);
       setAccessChecked(true); // Still set to true to prevent infinite loading
     }
   };
@@ -575,21 +599,26 @@ export default function MainChatScreen({ navigation }: any) {
         const statusResponse = await apiClient.get(`/api/v1/job/status/${jobId}`);
 
         if (!statusResponse.success) {
+          loggingService.error('Failed to check job status:', statusResponse.error);
           throw new Error(statusResponse.error || 'Failed to check job status');
         }
 
         const statusData = statusResponse.data;
 
         if (statusData.status === 'completed') {
+          loggingService.info('Job completed, fetching result...');
           // Get the result
           const resultResponse = await apiClient.get<CarbieResult>(`/api/v1/job/result/${jobId}`);
 
           if (resultResponse.success && resultResponse.data) {
+            loggingService.info('Successfully retrieved job result');
             return resultResponse.data;
           } else {
+            loggingService.error('Failed to get job result:', resultResponse.error);
             throw new Error(resultResponse.error || 'Failed to get job result');
           }
         } else if (statusData.status === 'failed') {
+          loggingService.error('Job processing failed');
           throw new Error('Job processing failed');
         } else if (statusData.status === 'processing') {
           setLoadingStatus('Processing your request...');
@@ -601,11 +630,12 @@ export default function MainChatScreen({ navigation }: any) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
       } catch (error) {
-        console.error('Error polling job status:', error);
+        loggingService.error('Error polling job status:', error);
         throw error;
       }
     }
 
+    loggingService.error('Request timed out after', maxAttempts, 'attempts');
     throw new Error('Request timed out');
   };
 
@@ -653,21 +683,21 @@ export default function MainChatScreen({ navigation }: any) {
   const validateSubscription = async (): Promise<boolean> => {
     try {
       // Use RevenueCat to check if user has access to premium features
-      console.log('Checking RevenueCat entitlements...');
+      loggingService.info('Checking RevenueCat entitlements...');
       const customerInfo = await Purchases.getCustomerInfo();
       
       // Check if user has the entitlement
       const isActive = customerInfo.entitlements.active[REVENUECAT_CONFIG.ENTITLEMENT_ID] !== undefined;
       
       if (isActive) {
-        console.log('User has active subscription via RevenueCat');
+        loggingService.info('User has active subscription via RevenueCat');
         return true;
       } else {
-        console.log('User does not have active subscription, will present paywall');
+        loggingService.warn('User does not have active subscription, will present paywall');
         return false;
       }
     } catch (error) {
-      console.error('Error checking RevenueCat entitlements:', error);
+      loggingService.error('Error checking RevenueCat entitlements:', error);
       // If RevenueCat fails, assume no subscription and present paywall
       return false;
     }
@@ -677,7 +707,7 @@ export default function MainChatScreen({ navigation }: any) {
     // Check authentication first
     const isAuthenticated = await authService.isAuthenticated();
     if (!isAuthenticated) {
-      console.log('User not authenticated, redirecting to login...');
+      loggingService.warn('User not authenticated, redirecting to login...');
       navigation.reset({
         index: 0,
         routes: [{ name: 'Welcome' }],
@@ -688,7 +718,7 @@ export default function MainChatScreen({ navigation }: any) {
     // Check subscription status
     const hasSubscription = await validateSubscription();
     if (!hasSubscription) {
-      console.log('No subscription, user needs to purchase subscription');
+      loggingService.warn('No subscription, user needs to purchase subscription');
       showAlert('Subscription Required', 'Please purchase a subscription to use this feature.');
       return;
     }
@@ -698,6 +728,8 @@ export default function MainChatScreen({ navigation }: any) {
     setFullResponse(null);
     setAnalysisMessage('');
     setLoadingStatus('Submitting request...');
+    
+    loggingService.info('Starting API request submission...');
 
     try {
       // Check if this is a test prompt
@@ -737,6 +769,7 @@ export default function MainChatScreen({ navigation }: any) {
       // Check if user is still authenticated
       const isAuth = await authService.isAuthenticated();
       if (!isAuth) {
+        loggingService.warn('Session expired during request, redirecting to login');
         showAlert('Session Expired', 'Please login again');
         navigation.reset({
           index: 0,
@@ -752,6 +785,7 @@ export default function MainChatScreen({ navigation }: any) {
       }
 
       // Submit to Carbie inference endpoint using API client
+      loggingService.info('Submitting request to API with prompt:', prompt);
       const response = await apiClient.post<JobResponse>('/api/v1/carbie/', {
         model_name: 'claude-haiku',
         model_version: 'latest',
@@ -760,6 +794,7 @@ export default function MainChatScreen({ navigation }: any) {
 
       if (!response.success) {
         if (response.statusCode === 401) {
+          loggingService.warn('API returned 401, session expired');
           showAlert('Session Expired', 'Please login again');
           await authService.logout();
           navigation.reset({
@@ -768,31 +803,33 @@ export default function MainChatScreen({ navigation }: any) {
           });
           return;
         }
+        loggingService.error('API request failed:', response.error);
         throw new Error(response.error || 'Failed to submit request');
       }
 
       if (!response.data) {
+        loggingService.error('No job ID received from server');
         throw new Error('No job ID received from server');
       }
 
-      console.log('Job submitted:', response.data.job_id);
+      loggingService.info('Job submitted successfully:', response.data.job_id);
 
       // Poll for results
+      loggingService.info('Starting to poll for job results...');
       const result = await pollJobStatus(response.data.job_id);
 
       if (result) {
-        console.log('Got result:', result);
+        loggingService.info('Received successful result from API');
         setFullResponse(result);
         const parsedResults = parseStructuredResponse(result);
         setResults(parsedResults);
-
-
       } else {
+        loggingService.error('No result received from polling');
         throw new Error('No result received');
       }
 
     } catch (error) {
-      console.error('Error submitting request:', error);
+      loggingService.error('Error submitting request:', error);
       showAlert(
         'Error',
         error instanceof Error ? error.message : 'Failed to process your request. Please try again.'
@@ -801,6 +838,7 @@ export default function MainChatScreen({ navigation }: any) {
       setLoading(false);
       setInputText('');
       setImageUri(null);
+      loggingService.info('Request submission completed');
     }
   };
 
@@ -864,10 +902,12 @@ export default function MainChatScreen({ navigation }: any) {
             <CarbAbsorptionChart ingredients={fullResponse.structured_data.ingredients} />
           )}
 
-          {/* Debug Response Component */}
-          {fullResponse && (
-            <DebugResponse fullResponse={fullResponse} initiallyExpanded={true} />
-          )}
+          {/* Debug Panel Component */}
+          <DebugPanel 
+            fullResponse={fullResponse} 
+            logs={logs}
+            initiallyExpanded={true} 
+          />
 
         </ScrollView>
       </LinearGradient>
