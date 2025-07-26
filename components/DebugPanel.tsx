@@ -78,6 +78,30 @@ export default function DebugPanel({ fullResponse, logs, initiallyExpanded = tru
     return date.toLocaleTimeString();
   };
 
+  const copyToClipboard = (text: string) => {
+    if (Platform.OS === 'web') {
+      navigator.clipboard.writeText(text).then(() => {
+        console.log('Copied to clipboard');
+      }).catch(err => {
+        console.error('Failed to copy: ', err);
+      });
+    } else {
+      // For React Native, you'd need to use a clipboard library
+      console.log('Copy to clipboard not implemented for mobile yet');
+    }
+  };
+
+  const getLogsText = () => {
+    return logs.map(log => 
+      `[${log.level.toUpperCase()}] ${log.message}${log.data ? ` - ${JSON.stringify(log.data)}` : ''}`
+    ).join('\n');
+  };
+
+  const getResponseText = () => {
+    if (!fullResponse) return 'No response data yet...';
+    return JSON.stringify(fullResponse, null, 2);
+  };
+
   return (
     <View style={styles.debugContainer}>
       {/* Header */}
@@ -104,6 +128,14 @@ export default function DebugPanel({ fullResponse, logs, initiallyExpanded = tru
             </TouchableOpacity>
           </View>
           
+          {/* Copy Button */}
+          <TouchableOpacity 
+            onPress={() => copyToClipboard(activeTab === 'logs' ? getLogsText() : getResponseText())}
+            style={styles.copyButton}
+          >
+            <MaterialIcons name="content-copy" size={16} color="#FFFFFF" />
+          </TouchableOpacity>
+          
           {/* Toggle Button */}
           <TouchableOpacity 
             onPress={() => setShowDebugPanel(!showDebugPanel)}
@@ -112,7 +144,7 @@ export default function DebugPanel({ fullResponse, logs, initiallyExpanded = tru
             <MaterialIcons 
               name={showDebugPanel ? "expand-less" : "expand-more"} 
               size={20} 
-              color="#2E7D32" 
+              color="#FFFFFF" 
             />
           </TouchableOpacity>
         </View>
@@ -207,18 +239,18 @@ export default function DebugPanel({ fullResponse, logs, initiallyExpanded = tru
 
 const styles = StyleSheet.create({
   debugContainer: {
-    backgroundColor: '#FF0000', // Bright red background for testing visibility
+    backgroundColor: '#2C3E50', // Dark blue-gray background
     borderRadius: 10,
     marginHorizontal: 20,
     marginBottom: 10,
-    borderWidth: 3,
-    borderColor: '#FF5722', // More visible red border
+    borderWidth: 2,
+    borderColor: '#34495E',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
-    minHeight: 100, // Ensure minimum height
+    minHeight: 120, // Ensure minimum height
   },
   debugHeader: {
     flexDirection: 'row',
@@ -226,7 +258,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#FF5722', // More visible red background
+    backgroundColor: '#34495E', // Darker header
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
   },
@@ -261,6 +293,12 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: '#FFFFFF',
   },
+  copyButton: {
+    padding: 6,
+    marginRight: 8,
+    backgroundColor: '#3498DB',
+    borderRadius: 4,
+  },
   toggleButton: {
     padding: 4,
   },
@@ -282,19 +320,19 @@ const styles = StyleSheet.create({
   },
   noLogsText: {
     fontSize: 14,
-    color: '#999',
+    color: '#BDC3C7', // Light gray for dark background
     fontStyle: 'italic',
     textAlign: 'center',
     marginBottom: 8,
   },
   noLogsSubtext: {
     fontSize: 12,
-    color: '#666',
+    color: '#95A5A6', // Lighter gray for dark background
     textAlign: 'center',
   },
   noResponseText: {
     fontSize: 14,
-    color: '#999',
+    color: '#BDC3C7', // Light gray for dark background
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 20,
@@ -322,7 +360,7 @@ const styles = StyleSheet.create({
   },
   logMessage: {
     fontSize: 13,
-    color: '#333',
+    color: '#ECF0F1', // Light text for dark background
     lineHeight: 18,
     marginBottom: 4,
   },
@@ -337,7 +375,7 @@ const styles = StyleSheet.create({
   },
   debugText: {
     fontSize: 14,
-    color: '#333',
+    color: '#ECF0F1', // Light text for dark background
     marginBottom: 8,
     lineHeight: 18,
   },
