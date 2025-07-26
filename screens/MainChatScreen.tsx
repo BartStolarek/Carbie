@@ -953,11 +953,20 @@ export default function MainChatScreen({ navigation }: any) {
         </ScrollView>
 
         {/* Debug Panel Component - Outside ScrollView, always visible */}
-        <DebugPanel 
-          fullResponse={fullResponse} 
-          logs={logs}
-          initiallyExpanded={true} 
-        />
+        <View style={styles.debugPanelContainer}>
+          <Text style={styles.debugPanelTitle}>DEBUG PANEL - {logs.length} logs</Text>
+          <View style={styles.debugPanelContent}>
+            {logs.length === 0 ? (
+              <Text style={styles.debugPanelText}>No logs yet...</Text>
+            ) : (
+              logs.slice(-3).map((log) => (
+                <Text key={log.id} style={styles.debugPanelText}>
+                  [{log.level.toUpperCase()}] {log.message}
+                </Text>
+              ))
+            )}
+          </View>
+        </View>
       </LinearGradient>
     </View>
   );
@@ -994,6 +1003,35 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40, // Add padding at bottom for better scrolling
+  },
+  // Debug panel styles
+  debugPanelContainer: {
+    backgroundColor: '#FF0000', // Bright red for visibility
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    minHeight: 80,
+  },
+  debugPanelTitle: {
+    backgroundColor: '#FFFFFF',
+    color: '#FF0000',
+    fontSize: 14,
+    fontWeight: 'bold',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+  },
+  debugPanelContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  debugPanelText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    marginBottom: 2,
   },
   // Added the missing loading styles
   loadingContainer: {
