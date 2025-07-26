@@ -1,4 +1,4 @@
-// components/DebugPanel.tsx
+git add // components/DebugPanel.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -35,7 +35,7 @@ interface DebugPanelProps {
 }
 
 export default function DebugPanel({ fullResponse, logs, initiallyExpanded = true }: DebugPanelProps) {
-  const [showDebugPanel, setShowDebugPanel] = useState(initiallyExpanded);
+  const [showDebugPanel, setShowDebugPanel] = useState(true); // Always start expanded
   const [activeTab, setActiveTab] = useState<'logs' | 'response'>('logs');
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -122,9 +122,12 @@ export default function DebugPanel({ fullResponse, logs, initiallyExpanded = tru
               nestedScrollEnabled={true}
               showsVerticalScrollIndicator={true}
             >
-              {logs.length === 0 ? (
-                <Text style={styles.noLogsText}>No logs yet...</Text>
-              ) : (
+                             {logs.length === 0 ? (
+                 <View style={styles.noLogsContainer}>
+                   <Text style={styles.noLogsText}>No logs yet...</Text>
+                   <Text style={styles.noLogsSubtext}>Debug panel is working - logs will appear here</Text>
+                 </View>
+               ) : (
                 logs.map((log) => (
                   <View key={log.id} style={styles.logEntry}>
                     <View style={styles.logHeader}>
@@ -201,13 +204,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.95)',
     borderRadius: 10,
     marginBottom: 15,
-    borderWidth: 2,
-    borderColor: '#FFA726',
+    borderWidth: 3,
+    borderColor: '#FF5722', // More visible red border
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   debugHeader: {
     flexDirection: 'row',
@@ -215,14 +218,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#FF5722', // More visible red background
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
   },
   debugTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#E65100',
+    color: '#FFFFFF', // White text on red background
   },
   headerControls: {
     flexDirection: 'row',
@@ -255,6 +258,7 @@ const styles = StyleSheet.create({
   },
   debugContent: {
     maxHeight: 300,
+    minHeight: 100, // Ensure minimum height for visibility
   },
   logsContainer: {
     paddingHorizontal: 12,
@@ -264,12 +268,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  noLogsContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
   noLogsText: {
     fontSize: 14,
     color: '#999',
     fontStyle: 'italic',
     textAlign: 'center',
-    paddingVertical: 20,
+    marginBottom: 8,
+  },
+  noLogsSubtext: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
   },
   noResponseText: {
     fontSize: 14,

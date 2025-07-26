@@ -466,10 +466,16 @@ export default function MainChatScreen({ navigation }: any) {
       easing: Easing.out(Easing.back(1.2)),
       useNativeDriver: true,
     }).start();
+    
+    // Add a test log when component mounts
+    loggingService.info('MainChatScreen component mounted');
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
+      // Add some initial logging to test the debug panel
+      loggingService.info('MainChatScreen focused - starting access check');
+      
       // Check access and present paywall if needed when screen loads
       checkAccessOnLoad();
     }, [])
@@ -490,6 +496,9 @@ export default function MainChatScreen({ navigation }: any) {
 
     // Initialize logs
     setLogs(loggingService.getLogs());
+    
+    // Add initial debug message to ensure panel is visible
+    loggingService.info('Debug panel initialized and ready');
 
     return () => {
       loggingService.off('logAdded', handleLogAdded);
