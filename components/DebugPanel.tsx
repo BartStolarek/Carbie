@@ -39,6 +39,12 @@ export default function DebugPanel({ fullResponse, logs, initiallyExpanded = tru
   const [activeTab, setActiveTab] = useState<'logs' | 'response'>('logs');
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // Add debugging to see if component is mounting
+  useEffect(() => {
+    console.log('DebugPanel component mounted');
+    console.log('DebugPanel props:', { fullResponse: !!fullResponse, logsLength: logs.length, initiallyExpanded });
+  }, [fullResponse, logs.length, initiallyExpanded]);
+
   // Auto-scroll to bottom when new logs are added
   useEffect(() => {
     if (scrollViewRef.current && logs.length > 0) {
@@ -201,7 +207,7 @@ export default function DebugPanel({ fullResponse, logs, initiallyExpanded = tru
 
 const styles = StyleSheet.create({
   debugContainer: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: '#FF0000', // Bright red background for testing visibility
     borderRadius: 10,
     marginHorizontal: 20,
     marginBottom: 10,
@@ -212,6 +218,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+    minHeight: 100, // Ensure minimum height
   },
   debugHeader: {
     flexDirection: 'row',

@@ -514,6 +514,8 @@ export default function MainChatScreen({ navigation }: any) {
     
     // Add initial debug message to ensure panel is visible
     loggingService.info('Debug panel initialized and ready');
+    loggingService.info('Platform:', Platform.OS);
+    loggingService.info('Component mounted on:', Platform.OS);
 
     return () => {
       loggingService.removeListener(handleLogAdded);
