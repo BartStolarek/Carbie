@@ -568,7 +568,15 @@ export default function MainChatScreen({ navigation }: any) {
         loggingService.error('Error setting RevenueCat user ID:', error);
       }
 
-      // Now check subscription status
+      // Check if user is admin first
+      const isAdmin = await authService.isAdmin();
+      if (isAdmin) {
+        loggingService.info('User is admin, bypassing paywall check');
+        setAccessChecked(true);
+        return;
+      }
+
+      // Now check subscription status (only for non-admin users)
       const hasSubscription = await validateSubscription();
       if (!hasSubscription) {
         loggingService.warn('No subscription detected, presenting paywall...');
@@ -674,7 +682,7 @@ export default function MainChatScreen({ navigation }: any) {
       }
     }
 
-    loggingService.error('Request timed out after', maxAttempts, 'attempts');
+    loggingService.error(`Request timed out after ${maxAttempts} attempts`);
     throw new Error('Request timed out');
   };
 
@@ -765,12 +773,18 @@ export default function MainChatScreen({ navigation }: any) {
       return;
     }
 
-    // Check subscription status
-    const hasSubscription = await validateSubscription();
-    if (!hasSubscription) {
-      loggingService.warn('No subscription, user needs to purchase subscription');
-      showAlert('Subscription Required', 'Please purchase a subscription to use this feature.');
-      return;
+    // Check if user is admin first
+    const isAdmin = await authService.isAdmin();
+    if (isAdmin) {
+      loggingService.info('User is admin, bypassing subscription check');
+    } else {
+      // Check subscription status (only for non-admin users)
+      const hasSubscription = await validateSubscription();
+      if (!hasSubscription) {
+        loggingService.warn('No subscription, user needs to purchase subscription');
+        showAlert('Subscription Required', 'Please purchase a subscription to use this feature.');
+        return;
+      }
     }
 
     setLoading(true);
