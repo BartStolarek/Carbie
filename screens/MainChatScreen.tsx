@@ -579,7 +579,9 @@ export default function MainChatScreen({ navigation }: any) {
         
         try {
           // First try the "if needed" version
+          loggingService.info('Attempting to present paywall...');
           paywallResult = await presentPaywallIfNeeded();
+          loggingService.info('Paywall result:', paywallResult);
         } catch (error) {
           loggingService.error('Error with presentPaywallIfNeeded:', error);
         }
