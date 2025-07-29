@@ -112,6 +112,12 @@ class AuthService {
     }
   }
 
+  // Check if current user is admin
+  async isAdmin(): Promise<boolean> {
+    const user = await this.getCurrentUser();
+    return user?.is_admin || false;
+  }
+
   // Login
   async login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
     const response = await apiClient.post<LoginResponse>(
@@ -198,22 +204,6 @@ class AuthService {
     await this.removeToken();
   }
 
-  // Check if user is admin
-  async isAdmin(): Promise<boolean> {
-    try {
-      const response = await apiClient.get<{ is_admin: boolean }>('/api/v1/user/isAdmin');
-      
-      if (response.success && response.data) {
-        return response.data.is_admin;
-      } else {
-        console.error('Error checking admin status:', response.error);
-        return false;
-      }
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      return false;
-    }
-  }
 
   // Make authenticated API request (legacy method, prefer using apiClient directly)
   async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {

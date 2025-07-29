@@ -2,23 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-
-interface CarbieResult {
-  model_name: string;
-  model_version: string;
-  prompt: string;
-  structured_data?: any;
-  usage: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-    input_tokens?: number;
-    output_tokens?: number;
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-  };
-  elapsed_time_seconds: number;
-}
+import { CarbieResult } from '../types/CarbieTypes';
 
 interface LogMessage {
   id: string;

@@ -14,8 +14,6 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
-import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
-import Purchases from 'react-native-purchases';
 
 // Import the new components
 import FoodInput from '../components/FoodInput';
@@ -26,296 +24,10 @@ import TotalAnalysis from '../components/TotalAnalysis';
 import CarbAbsorptionChart from '../components/CarbAbsorptionChart';
 import MenuDropdown from '../components/MenuDropdown';
 import { authService } from '../services/AuthService';
-import { revenueCatService } from '../services/RevenueCatService';
-import { REVENUECAT_CONFIG } from '../config/revenuecat';
+import { accessService, AccessResult } from '../services/AccessService';
 import { loggingService, LogMessage } from '../services/LoggingService';
-
-
-
-interface IngredientData {
-  ingredient: string;
-  is_liquid: boolean;
-  estimated_weight_volume: number;
-  low_carb_estimate: number;
-  high_carb_estimate: number;
-  gi_index: number;
-  peak_bg_time: string;
-}
-
-interface StructuredData {
-  is_food_related: boolean;
-  ingredients: IngredientData[];
-  aggregated_peak_bg_time_minutes: number;
-  message: string;
-}
-
-interface JobResponse {
-  job_id: string;
-  status: string;
-}
-
-interface CarbieResult {
-  model_name: string;
-  model_version: string;
-  prompt: string;
-  structured_data?: StructuredData;
-  usage: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-    input_tokens?: number;
-    output_tokens?: number;
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-    input_cost_usd?: number;
-    output_cost_usd?: number;
-    cache_write_cost_usd?: number;
-    cache_read_cost_usd?: number;
-    total_cost_usd?: number;
-  };
-  elapsed_time_seconds: number;
-}
-
-// Hardcoded test response
-const TEST_RESPONSE: CarbieResult = {
-  "model_name": "claude-haiku",
-  "model_version": "latest",
-  "prompt": "test",
-  "structured_data": {
-    "is_food_related": true,
-    "aggregated_peak_bg_time_minutes": 60,
-    "ingredients": [
-      {
-        "ingredient": "Roast Potatoes",
-        "is_liquid": false,
-        "estimated_weight_volume": 200,
-        "low_carb_estimate": 30,
-        "high_carb_estimate": 40,
-        "gi_index": 70,
-        "peak_bg_time": "90min"
-      },
-      {
-        "ingredient": "Roast Beef",
-        "is_liquid": false,
-        "estimated_weight_volume": 150,
-        "low_carb_estimate": 0,
-        "high_carb_estimate": 2,
-        "gi_index": 0,
-        "peak_bg_time": "45min"
-      },
-      {
-        "ingredient": "Yorkshire Pudding",
-        "is_liquid": false,
-        "estimated_weight_volume": 50,
-        "low_carb_estimate": 10,
-        "high_carb_estimate": 15,
-        "gi_index": 80,
-        "peak_bg_time": "60min"
-      },
-      {
-        "ingredient": "Roasted Vegetables",
-        "is_liquid": false,
-        "estimated_weight_volume": 100,
-        "low_carb_estimate": 5,
-        "high_carb_estimate": 10,
-        "gi_index": 50,
-        "peak_bg_time": "60min"
-      },
-      {
-        "ingredient": "Gravy",
-        "is_liquid": true,
-        "estimated_weight_volume": 50,
-        "low_carb_estimate": 2,
-        "high_carb_estimate": 5,
-        "gi_index": 20,
-        "peak_bg_time": "45min"
-      }
-    ],
-    "message": "Carb estimates for a typical Sunday roast dinner components"
-  },
-  "usage": {
-    "input_tokens": 2947,
-    "output_tokens": 839,
-    "total_tokens": 3786,
-    "cache_creation_input_tokens": 0,
-    "cache_read_input_tokens": 0,
-    "input_cost_usd": 0.0023576,
-    "output_cost_usd": 0.003356,
-    "cache_write_cost_usd": 0,
-    "cache_read_cost_usd": 0,
-    "total_cost_usd": 0.0057136
-  },
-  "elapsed_time_seconds": 13.724469
-};
-
-const TEST_RESPONSE2: CarbieResult = {
-  "model_name": "claude-haiku",
-  "model_version": "latest",
-  "prompt": "sunday roast dinner, with lamb, pumpkin, potatoes, peas, mint jelly sauce and gravy and also 30 grams of glucose tablets",
-  "structured_data": {
-    "is_food_related": true,
-    "ingredients": [
-      {
-        "ingredient": "Lamb",
-        "is_liquid": false,
-        "estimated_weight_volume": 150,
-        "low_carb_estimate": 0,
-        "high_carb_estimate": 0,
-        "gi_index": 0,
-        "peak_bg_time": "0min"
-      },
-      {
-        "ingredient": "Pumpkin",
-        "is_liquid": false,
-        "estimated_weight_volume": 100,
-        "low_carb_estimate": 10,
-        "high_carb_estimate": 15,
-        "gi_index": 75,
-        "peak_bg_time": "45min"
-      },
-      {
-        "ingredient": "Potatoes",
-        "is_liquid": false,
-        "estimated_weight_volume": 150,
-        "low_carb_estimate": 25,
-        "high_carb_estimate": 30,
-        "gi_index": 80,
-        "peak_bg_time": "60min"
-      },
-      {
-        "ingredient": "Peas",
-        "is_liquid": false,
-        "estimated_weight_volume": 50,
-        "low_carb_estimate": 5,
-        "high_carb_estimate": 8,
-        "gi_index": 50,
-        "peak_bg_time": "45min"
-      },
-      {
-        "ingredient": "Mint Jelly Sauce",
-        "is_liquid": true,
-        "estimated_weight_volume": 30,
-        "low_carb_estimate": 5,
-        "high_carb_estimate": 10,
-        "gi_index": 70,
-        "peak_bg_time": "45min"
-      },
-      {
-        "ingredient": "Gravy",
-        "is_liquid": true,
-        "estimated_weight_volume": 50,
-        "low_carb_estimate": 2,
-        "high_carb_estimate": 5,
-        "gi_index": 40,
-        "peak_bg_time": "30min"
-      },
-      {
-        "ingredient": "Glucose Tablets",
-        "is_liquid": false,
-        "estimated_weight_volume": 30,
-        "low_carb_estimate": 30,
-        "high_carb_estimate": 30,
-        "gi_index": 100,
-        "peak_bg_time": "15min"
-      }
-    ],
-    "aggregated_peak_bg_time_minutes": 60,
-    "message": "Sunday roast carb breakdown"
-  },
-  "usage": {
-    "input_tokens": 1344,
-    "output_tokens": 716,
-    "total_tokens": 2060,
-    "cache_creation_input_tokens": 0,
-    "cache_read_input_tokens": 0,
-    "input_cost_usd": 0.0010752,
-    "output_cost_usd": 0.002864,
-    "cache_write_cost_usd": 0,
-    "cache_read_cost_usd": 0,
-    "total_cost_usd": 0.0039392
-  },
-  "elapsed_time_seconds": 9.499581
-};
-
-const TEST_RESPONSE3: CarbieResult = {
-  "model_name": "claude-haiku",
-  "model_version": "latest",
-  "prompt": "a 3 course meal with chicken soup, roast lamb pumpkin and potato main, and apple crumb with ice cream dessert",
-  "structured_data": {
-    "is_food_related": true,
-    "ingredients": [
-      {
-        "ingredient": "Chicken Soup",
-        "is_liquid": true,
-        "estimated_weight_volume": 250,
-        "low_carb_estimate": 5,
-        "high_carb_estimate": 10,
-        "gi_index": 40,
-        "peak_bg_time": "45min"
-      },
-      {
-        "ingredient": "Roast Lamb",
-        "is_liquid": false,
-        "estimated_weight_volume": 150,
-        "low_carb_estimate": 0,
-        "high_carb_estimate": 2,
-        "gi_index": 0,
-        "peak_bg_time": "30min"
-      },
-      {
-        "ingredient": "Pumpkin",
-        "is_liquid": false,
-        "estimated_weight_volume": 100,
-        "low_carb_estimate": 10,
-        "high_carb_estimate": 15,
-        "gi_index": 75,
-        "peak_bg_time": "60min"
-      },
-      {
-        "ingredient": "Potato",
-        "is_liquid": false,
-        "estimated_weight_volume": 150,
-        "low_carb_estimate": 20,
-        "high_carb_estimate": 30,
-        "gi_index": 80,
-        "peak_bg_time": "75min"
-      },
-      {
-        "ingredient": "Apple Crumb",
-        "is_liquid": false,
-        "estimated_weight_volume": 120,
-        "low_carb_estimate": 25,
-        "high_carb_estimate": 35,
-        "gi_index": 70,
-        "peak_bg_time": "90min"
-      },
-      {
-        "ingredient": "Ice Cream",
-        "is_liquid": true,
-        "estimated_weight_volume": 100,
-        "low_carb_estimate": 15,
-        "high_carb_estimate": 25,
-        "gi_index": 50,
-        "peak_bg_time": "60min"
-      }
-    ],
-    "aggregated_peak_bg_time_minutes": 75,
-    "message": "Total carbs: 75-117g, peak BG around 75 minutes"
-  },
-  "usage": {
-    "input_tokens": 1338,
-    "output_tokens": 641,
-    "total_tokens": 1979,
-    "cache_creation_input_tokens": 0,
-    "cache_read_input_tokens": 0,
-    "input_cost_usd": 0.0010704,
-    "output_cost_usd": 0.002564,
-    "cache_write_cost_usd": 0,
-    "cache_read_cost_usd": 0,
-    "total_cost_usd": 0.0036344
-  },
-  "elapsed_time_seconds": 9.264172
-};
+import TestDataService from '../services/TestDataService';
+import { CarbieResult, IngredientData, JobResponse } from '../types/CarbieTypes';
 
 // Cross-platform alert function
 const alertPolyfill = (title: string, description?: string, options?: any[], extra?: any) => {
@@ -337,134 +49,6 @@ const alertPolyfill = (title: string, description?: string, options?: any[], ext
 
 const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
 
-// RevenueCat Paywall Functions
-async function presentPaywall(): Promise<boolean> {
-  try {
-    loggingService.info('Presenting RevenueCat paywall...');
-    
-    // Check if RevenueCatUI is available
-    if (!RevenueCatUI) {
-      loggingService.error('RevenueCatUI is not available');
-      return false;
-    }
-    
-    // Check if presentPaywall method exists
-    if (typeof RevenueCatUI.presentPaywall !== 'function') {
-      loggingService.error('RevenueCatUI.presentPaywall is not a function');
-      return false;
-    }
-    
-    loggingService.info('Calling RevenueCatUI.presentPaywall()...');
-    const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall();
-    
-    loggingService.info('Paywall result:', paywallResult);
-    
-    switch (paywallResult) {
-      case PAYWALL_RESULT.NOT_PRESENTED:
-        loggingService.warn('Paywall NOT_PRESENTED - this usually means no offerings are configured');
-        return false;
-      case PAYWALL_RESULT.ERROR:
-        loggingService.error('Paywall ERROR occurred');
-        return false;
-      case PAYWALL_RESULT.CANCELLED:
-        loggingService.warn('Paywall was cancelled by user');
-        return false;
-      case PAYWALL_RESULT.PURCHASED:
-        loggingService.info('Purchase successful');
-        return true;
-      case PAYWALL_RESULT.RESTORED:
-        loggingService.info('Purchase restored');
-        return true;
-      default:
-        loggingService.warn('Unknown paywall result:', paywallResult);
-        return false;
-    }
-  } catch (error) {
-    loggingService.error('Error presenting paywall:', error);
-    // Don't crash the app, just return false
-    return false;
-  }
-}
-
-async function presentPaywallIfNeeded(): Promise<boolean> {
-  try {
-    loggingService.info('Presenting RevenueCat paywall if needed...');
-    const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywallIfNeeded({
-      requiredEntitlementIdentifier: REVENUECAT_CONFIG.ENTITLEMENT_ID
-    });
-    
-    loggingService.info('Paywall if needed result:', paywallResult);
-    
-    switch (paywallResult) {
-      case PAYWALL_RESULT.NOT_PRESENTED:
-      case PAYWALL_RESULT.ERROR:
-      case PAYWALL_RESULT.CANCELLED:
-        loggingService.warn('Paywall not presented, error, or cancelled');
-        return false;
-      case PAYWALL_RESULT.PURCHASED:
-      case PAYWALL_RESULT.RESTORED:
-        loggingService.info('Purchase successful or restored');
-        return true;
-      default:
-        loggingService.warn('Unknown paywall result:', paywallResult);
-        return false;
-    }
-  } catch (error) {
-    loggingService.error('Error presenting paywall if needed:', error);
-    // Don't crash the app, just return false
-    return false;
-  }
-}
-
-// Function to present paywall for specific offering (Monthly Subscription Paywall)
-async function presentMonthlySubscriptionPaywall(): Promise<boolean> {
-  try {
-    loggingService.info('Presenting Monthly Subscription Paywall for offering: default_version1...');
-    
-    // Try to get the specific offering first
-    try {
-      const offerings = await Purchases.getOfferings();
-      const defaultOffering = offerings.current;
-      
-      if (defaultOffering) {
-        loggingService.info('Found default offering, presenting paywall...');
-        const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
-          offering: defaultOffering
-        });
-        
-        loggingService.info('Monthly subscription paywall result:', paywallResult);
-        
-        switch (paywallResult) {
-          case PAYWALL_RESULT.NOT_PRESENTED:
-          case PAYWALL_RESULT.ERROR:
-          case PAYWALL_RESULT.CANCELLED:
-            loggingService.warn('Monthly subscription paywall not presented, error, or cancelled');
-            return false;
-          case PAYWALL_RESULT.PURCHASED:
-          case PAYWALL_RESULT.RESTORED:
-            loggingService.info('Monthly subscription purchase successful or restored');
-            return true;
-          default:
-            loggingService.warn('Unknown monthly subscription paywall result:', paywallResult);
-            return false;
-        }
-      } else {
-        loggingService.warn('No default offering found, falling back to regular paywall...');
-        // Fallback to regular paywall
-        return await presentPaywall();
-      }
-    } catch (offeringError) {
-      loggingService.error('Error getting offerings, falling back to regular paywall:', offeringError);
-      // Fallback to regular paywall
-      return await presentPaywall();
-    }
-  } catch (error) {
-    loggingService.error('Error presenting monthly subscription paywall:', error);
-    // Don't crash the app, just return false
-    return false;
-  }
-}
-
 export default function MainChatScreen({ navigation }: any) {
   const [inputText, setInputText] = useState('');
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -474,7 +58,7 @@ export default function MainChatScreen({ navigation }: any) {
   const [fullResponse, setFullResponse] = useState<CarbieResult | null>(null);
   const [analysisMessage, setAnalysisMessage] = useState<string>('');
   const [accessChecked, setAccessChecked] = useState(false);
-  const [showPaywall, setShowPaywall] = useState(false);
+  const [accessResult, setAccessResult] = useState<AccessResult | null>(null);
   const [logs, setLogs] = useState<LogMessage[]>([]);
 
   // Animate the title scaling in
@@ -496,8 +80,6 @@ export default function MainChatScreen({ navigation }: any) {
       // Add some initial logging to test the debug panel
       loggingService.info('MainChatScreen focused - starting access check');
       
-      // Check access and present paywall if needed when screen loads
-      checkAccessOnLoad();
     }, [])
   );
 
@@ -521,119 +103,6 @@ export default function MainChatScreen({ navigation }: any) {
       loggingService.removeListener(handleLogAdded);
     };
   }, []);
-
-  const checkAccessOnLoad = async () => {
-    try {
-      loggingService.info('Checking authentication and subscription on screen load...');
-      
-      // First, check if user is authenticated with your API
-      const isAuthenticated = await authService.isAuthenticated();
-      if (!isAuthenticated) {
-        loggingService.warn('User not authenticated, redirecting to login...');
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Welcome' }],
-        });
-        return;
-      }
-
-      // Get current user to set RevenueCat user ID
-      const user = await authService.getCurrentUser();
-      if (!user) {
-        loggingService.warn('Could not get user info, redirecting to login...');
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Welcome' }],
-        });
-        return;
-      }
-
-      // Set RevenueCat user ID to match your user system
-      try {
-        await Purchases.logIn(user.id.toString());
-        loggingService.info('RevenueCat user ID set to:', user.id);
-        
-        // Check RevenueCat configuration after login
-        try {
-          const offerings = await Purchases.getOfferings();
-          loggingService.info('RevenueCat offerings:', {
-            current: offerings.current?.identifier,
-            available: Object.keys(offerings.all),
-            all: offerings.all
-          });
-        } catch (offeringsError) {
-          loggingService.error('Error getting RevenueCat offerings:', offeringsError);
-        }
-      } catch (error) {
-        loggingService.error('Error setting RevenueCat user ID:', error);
-      }
-
-      // Check if user is admin first
-      const isAdmin = await authService.isAdmin();
-      if (isAdmin) {
-        loggingService.info('User is admin, bypassing paywall check');
-        setAccessChecked(true);
-        return;
-      }
-
-      // Now check subscription status (only for non-admin users)
-      const hasSubscription = await validateSubscription();
-      if (!hasSubscription) {
-        loggingService.warn('No subscription detected, presenting paywall...');
-        setShowPaywall(true);
-        
-        // Try to present paywall
-        let paywallResult = false;
-        
-        try {
-          // First try the "if needed" version
-          loggingService.info('Attempting to present paywall...');
-          paywallResult = await presentPaywallIfNeeded();
-          loggingService.info('Paywall result:', paywallResult);
-        } catch (error) {
-          loggingService.error('Error with presentPaywallIfNeeded:', error);
-        }
-        
-        // If that doesn't work, try the regular paywall
-        if (!paywallResult) {
-          try {
-            loggingService.info('Trying regular paywall...');
-            paywallResult = await presentPaywall();
-          } catch (error) {
-            loggingService.error('Error with presentPaywall:', error);
-          }
-        }
-        
-        // If that still doesn't work, try the monthly subscription paywall
-        if (!paywallResult) {
-          try {
-            loggingService.info('Trying monthly subscription paywall...');
-            paywallResult = await presentMonthlySubscriptionPaywall();
-          } catch (error) {
-            loggingService.error('Error with presentMonthlySubscriptionPaywall:', error);
-          }
-        }
-        
-        setShowPaywall(false);
-        
-        if (paywallResult) {
-          loggingService.info('Paywall purchase successful');
-          // Re-validate subscription after successful purchase
-          const newSubscription = await validateSubscription();
-          if (!newSubscription) {
-            loggingService.warn('Still no subscription after purchase');
-          }
-        } else {
-          loggingService.warn('All paywall attempts failed or were cancelled');
-        }
-      }
-      
-      setAccessChecked(true);
-    } catch (error) {
-      loggingService.error('Error checking access on load:', error);
-      setAccessChecked(true); // Still set to true to prevent infinite loading
-    }
-  };
 
   const pollJobStatus = async (jobId: string): Promise<CarbieResult | null> => {
     const maxAttempts = 60; // Poll for up to 5 minutes (1s intervals)
@@ -727,65 +196,8 @@ export default function MainChatScreen({ navigation }: any) {
     ];
   };
 
-  const validateSubscription = async (): Promise<boolean> => {
-    try {
-      // Use RevenueCat to check if user has access to premium features
-      loggingService.info('Checking RevenueCat entitlements...');
-      const customerInfo = await Purchases.getCustomerInfo();
-      
-      loggingService.info('Customer info:', {
-        originalAppUserId: customerInfo.originalAppUserId,
-        entitlements: customerInfo.entitlements,
-        activeSubscriptions: customerInfo.activeSubscriptions,
-        allPurchaseDates: customerInfo.allPurchaseDates
-      });
-      
-      // Check if user has the entitlement
-      const entitlementId = REVENUECAT_CONFIG.ENTITLEMENT_ID;
-      loggingService.info('Looking for entitlement:', entitlementId);
-      
-      const isActive = customerInfo.entitlements.active[entitlementId] !== undefined;
-      
-      if (isActive) {
-        loggingService.info('User has active subscription via RevenueCat');
-        return true;
-      } else {
-        loggingService.warn('User does not have active subscription, will present paywall');
-        loggingService.info('Available entitlements:', Object.keys(customerInfo.entitlements.active));
-        return false;
-      }
-    } catch (error) {
-      loggingService.error('Error checking RevenueCat entitlements:', error);
-      // If RevenueCat fails, assume no subscription and present paywall
-      return false;
-    }
-  };
-
   const handleSubmit = async () => {
-    // Check authentication first
-    const isAuthenticated = await authService.isAuthenticated();
-    if (!isAuthenticated) {
-      loggingService.warn('User not authenticated, redirecting to login...');
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Welcome' }],
-      });
-      return;
-    }
-
-    // Check if user is admin first
-    const isAdmin = await authService.isAdmin();
-    if (isAdmin) {
-      loggingService.info('User is admin, bypassing subscription check');
-    } else {
-      // Check subscription status (only for non-admin users)
-      const hasSubscription = await validateSubscription();
-      if (!hasSubscription) {
-        loggingService.warn('No subscription, user needs to purchase subscription');
-        showAlert('Subscription Required', 'Please purchase a subscription to use this feature.');
-        return;
-      }
-    }
+    
 
     setLoading(true);
     setResults([]);
@@ -797,48 +209,24 @@ export default function MainChatScreen({ navigation }: any) {
 
     try {
       // Check if this is a test prompt
-      if (inputText.trim().toLowerCase() === 'test') {
-        setLoadingStatus('Processing test request...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('Using test response');
-        setFullResponse(TEST_RESPONSE);
-        const parsedResults = parseStructuredResponse(TEST_RESPONSE);
-        setResults(parsedResults);
-
-        return;
+      if (TestDataService.isTestCommand(inputText)) {
+        const testResponse = TestDataService.getTestResponse(inputText);
+        if (testResponse) {
+          setLoadingStatus(TestDataService.getTestLoadingStatus(inputText));
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log('Using test response for:', inputText);
+          setFullResponse(testResponse);
+          const parsedResults = parseStructuredResponse(testResponse);
+          setResults(parsedResults);
+          return;
+        }
       }
 
-      if (inputText.trim().toLowerCase() === 'test2') {
-        setLoadingStatus('Processing test2 request...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('Using test response');
-        setFullResponse(TEST_RESPONSE2);
-        const parsedResults = parseStructuredResponse(TEST_RESPONSE2);
-        setResults(parsedResults);
-
-        return;
-      }
-
-      if (inputText.trim().toLowerCase() === 'test3') {
-        setLoadingStatus('Processing test3 request...');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        console.log('Using test response');
-        setFullResponse(TEST_RESPONSE3);
-        const parsedResults = parseStructuredResponse(TEST_RESPONSE3);
-        setResults(parsedResults);
-
-        return;
-      }
-
-      // Check if user is still authenticated
-      const isAuth = await authService.isAuthenticated();
-      if (!isAuth) {
-        loggingService.warn('Session expired during request, redirecting to login');
-        showAlert('Session Expired', 'Please login again');
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Welcome' }],
-        });
+      // Check access and handle authentication/paywall automatically
+      const accessResult = await accessService.checkAccess(navigation);
+      if (!accessResult.hasAccess) {
+        loggingService.warn('User does not have access after paywall handling');
+        showAlert('Subscription Required', 'Please purchase a subscription to use this feature.');
         return;
       }
 
