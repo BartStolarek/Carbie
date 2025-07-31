@@ -1,3 +1,9 @@
+# How to start
+
+`sudo npm install`
+
+`npx expo start --web`
+
 # Install the latest eas cli
 
 `sudo npm install -g eas-cli`
