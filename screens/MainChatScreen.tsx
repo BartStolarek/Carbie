@@ -57,34 +57,37 @@ export default function MainChatScreen({ navigation }: any) {
   const [loadingStatus, setLoadingStatus] = useState('');
   const [fullResponse, setFullResponse] = useState<CarbieResult | null>(null);
   const [analysisMessage, setAnalysisMessage] = useState<string>('');
-  const [accessChecked, setAccessChecked] = useState(false);
-  const [accessResult, setAccessResult] = useState<AccessResult | null>(null);
   const [logs, setLogs] = useState<LogMessage[]>([]);
 
   // Animate the title scaling in
   const titleScale = useRef(new Animated.Value(0.8)).current;
   useEffect(() => {
+    loggingService.info('MainChatScreen: Component mounting, starting title animation');
+    
     Animated.timing(titleScale, {
       toValue: 1,
       duration: 800,
       easing: Easing.out(Easing.back(1.2)),
       useNativeDriver: true,
-    }).start();
+    }).start(() => {
+      loggingService.debug('MainChatScreen: Title animation completed');
+    });
     
     // Add a test log when component mounts
-    loggingService.info('MainChatScreen component mounted');
+    loggingService.info('MainChatScreen: Component mounted successfully');
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
-      // Add some initial logging to test the debug panel
-      loggingService.info('MainChatScreen focused - starting access check');
+      loggingService.info('MainChatScreen: Screen focused - starting access check');
       
     }, [])
   );
 
   // Listen to log events
   useEffect(() => {
+    loggingService.debug('MainChatScreen: Setting up log listener');
+    
     const handleLogAdded = () => {
       setLogs(loggingService.getLogs());
     };
@@ -95,76 +98,131 @@ export default function MainChatScreen({ navigation }: any) {
     setLogs(loggingService.getLogs());
     
     // Add initial debug message to ensure panel is visible
-    loggingService.info('Debug panel initialized and ready');
-    loggingService.info('Platform:', Platform.OS);
-    loggingService.info('Component mounted on:', Platform.OS);
+    loggingService.info('MainChatScreen: Debug panel initialized and ready');
+    loggingService.info('MainChatScreen: Platform information', { platform: Platform.OS });
+    loggingService.info('MainChatScreen: Component mounted on', { platform: Platform.OS });
 
     return () => {
+      loggingService.debug('MainChatScreen: Cleaning up log listener');
       loggingService.removeListener(handleLogAdded);
     };
   }, []);
 
   const pollJobStatus = async (jobId: string): Promise<CarbieResult | null> => {
+    const methodName = 'pollJobStatus';
+    loggingService.info(`${methodName}: Starting job status polling`, { jobId });
+    
     const maxAttempts = 60; // Poll for up to 5 minutes (1s intervals)
     let attempts = 0;
 
     while (attempts < maxAttempts) {
       try {
         setLoadingStatus(`Checking status... (${attempts + 1}/${maxAttempts})`);
+        loggingService.debug(`${methodName}: Polling attempt`, { 
+          attempt: attempts + 1, 
+          maxAttempts,
+          jobId 
+        });
 
         const statusResponse = await apiClient.get(`/api/v1/job/status/${jobId}`);
 
+        loggingService.info(`${methodName}: Status response received`, { 
+          success: statusResponse.success,
+          statusCode: statusResponse.statusCode,
+          hasError: !!statusResponse.error,
+          jobId 
+        });
+
         if (!statusResponse.success) {
-          loggingService.error('Failed to check job status:', statusResponse.error);
+          loggingService.error(`${methodName}: Failed to check job status`, { 
+            error: statusResponse.error,
+            statusCode: statusResponse.statusCode,
+            jobId 
+          });
           throw new Error(statusResponse.error || 'Failed to check job status');
         }
 
         const statusData = statusResponse.data;
+        loggingService.info(`${methodName}: Job status`, { 
+          status: statusData.status,
+          jobId 
+        });
 
         if (statusData.status === 'completed') {
-          loggingService.info('Job completed, fetching result...');
+          loggingService.info(`${methodName}: Job completed, fetching result`, { jobId });
           // Get the result
           const resultResponse = await apiClient.get<CarbieResult>(`/api/v1/job/result/${jobId}`);
 
+          loggingService.info(`${methodName}: Result response received`, { 
+            success: resultResponse.success,
+            statusCode: resultResponse.statusCode,
+            hasData: !!resultResponse.data,
+            hasError: !!resultResponse.error,
+            jobId 
+          });
+
           if (resultResponse.success && resultResponse.data) {
-            loggingService.info('Successfully retrieved job result');
+            loggingService.info(`${methodName}: Successfully retrieved job result`, { jobId });
             return resultResponse.data;
           } else {
-            loggingService.error('Failed to get job result:', resultResponse.error);
+            loggingService.error(`${methodName}: Failed to get job result`, { 
+              error: resultResponse.error,
+              statusCode: resultResponse.statusCode,
+              jobId 
+            });
             throw new Error(resultResponse.error || 'Failed to get job result');
           }
         } else if (statusData.status === 'failed') {
-          loggingService.error('Job processing failed');
+          loggingService.error(`${methodName}: Job processing failed`, { jobId });
           throw new Error('Job processing failed');
         } else if (statusData.status === 'processing') {
           setLoadingStatus('Processing your request...');
+          loggingService.debug(`${methodName}: Job still processing`, { jobId });
         } else if (statusData.status === 'queued') {
           setLoadingStatus('Your request is in queue...');
+          loggingService.debug(`${methodName}: Job in queue`, { jobId });
         }
 
         // Wait 1 seconds before next check
         await new Promise(resolve => setTimeout(resolve, 1000));
         attempts++;
       } catch (error) {
-        loggingService.error('Error polling job status:', error);
+        loggingService.error(`${methodName}: Error polling job status`, { 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          jobId,
+          attempt: attempts + 1 
+        });
         throw error;
       }
     }
 
-    loggingService.error(`Request timed out after ${maxAttempts} attempts`);
+    loggingService.error(`${methodName}: Request timed out`, { 
+      maxAttempts,
+      jobId 
+    });
     throw new Error('Request timed out');
   };
 
   const parseStructuredResponse = (response: CarbieResult): ResultItem[] => {
+    const methodName = 'parseStructuredResponse';
+    loggingService.debug(`${methodName}: Starting response parsing`, { 
+      hasStructuredData: !!response.structured_data,
+      hasIngredients: !!response.structured_data?.ingredients 
+    });
+    
     // Check if we have structured data
     if (response.structured_data && response.structured_data.ingredients) {
       const { structured_data } = response;
 
       // Set the analysis message
       setAnalysisMessage(structured_data.message || '');
+      loggingService.debug(`${methodName}: Set analysis message`, { 
+        message: structured_data.message || 'No message' 
+      });
 
       // Convert structured ingredients to ResultItem format
-      return structured_data.ingredients.map((ingredient: IngredientData) => {
+      const parsedResults = structured_data.ingredients.map((ingredient: IngredientData) => {
         // Format weight/volume with appropriate unit
         const weightVolumeDisplay = ingredient.is_liquid
           ? `${ingredient.estimated_weight_volume}ml`
@@ -182,9 +240,17 @@ export default function MainChatScreen({ navigation }: any) {
           peakTime: ingredient.peak_bg_time,
         };
       });
+
+      loggingService.info(`${methodName}: Successfully parsed structured response`, { 
+        ingredientCount: parsedResults.length,
+        ingredients: parsedResults.map(r => r.ingredient) 
+      });
+      
+      return parsedResults;
     }
 
     // Fallback to old parsing method if no structured data
+    loggingService.warn(`${methodName}: No structured data found, using fallback parsing`);
     setAnalysisMessage('Analysis completed');
     return [
       {
@@ -197,7 +263,13 @@ export default function MainChatScreen({ navigation }: any) {
   };
 
   const handleSubmit = async () => {
-    
+    const methodName = 'handleSubmit';
+    loggingService.info(`${methodName}: Starting submission process`, { 
+      hasInputText: !!inputText,
+      inputTextLength: inputText.length,
+      hasImageUri: !!imageUri,
+      imageUri: imageUri || 'none'
+    });
 
     setLoading(true);
     setResults([]);
@@ -205,16 +277,17 @@ export default function MainChatScreen({ navigation }: any) {
     setAnalysisMessage('');
     setLoadingStatus('Submitting request...');
     
-    loggingService.info('Starting API request submission...');
+    loggingService.info(`${methodName}: Starting API request submission`);
 
     try {
       // Check if this is a test prompt
       if (TestDataService.isTestCommand(inputText)) {
+        loggingService.info(`${methodName}: Detected test command`, { inputText });
         const testResponse = TestDataService.getTestResponse(inputText);
         if (testResponse) {
           setLoadingStatus(TestDataService.getTestLoadingStatus(inputText));
           await new Promise(resolve => setTimeout(resolve, 1000));
-          console.log('Using test response for:', inputText);
+          loggingService.info(`${methodName}: Using test response`, { inputText });
           setFullResponse(testResponse);
           const parsedResults = parseStructuredResponse(testResponse);
           setResults(parsedResults);
@@ -223,9 +296,18 @@ export default function MainChatScreen({ navigation }: any) {
       }
 
       // Check access and handle authentication/paywall automatically
+      loggingService.debug(`${methodName}: Checking access permissions`);
       const accessResult = await accessService.checkAccess(navigation);
+      loggingService.info(`${methodName}: Access check result`, { 
+        hasAccess: accessResult.hasAccess,
+        isAuthenticated: accessResult.isAuthenticated,
+        isAdmin: accessResult.isAdmin,
+        hasSubscription: accessResult.hasSubscription,
+        error: accessResult.error 
+      });
+      
       if (!accessResult.hasAccess) {
-        loggingService.warn('User does not have access after paywall handling');
+        loggingService.warn(`${methodName}: User does not have access after paywall handling`);
         showAlert('Subscription Required', 'Please purchase a subscription to use this feature.');
         return;
       }
@@ -236,17 +318,28 @@ export default function MainChatScreen({ navigation }: any) {
         prompt += imageUri ? '\n[Image attached - please analyze the food items in the image]' : '';
       }
 
+      loggingService.info(`${methodName}: Submitting request to API`, { 
+        promptLength: prompt.length,
+        hasImage: !!imageUri 
+      });
+      
       // Submit to Carbie inference endpoint using API client
-      loggingService.info('Submitting request to API with prompt:', prompt);
       const response = await apiClient.post<JobResponse>('/api/v1/carbie/', {
         model_name: 'claude-haiku',
         model_version: 'latest',
         prompt: prompt,
       });
 
+      loggingService.info(`${methodName}: API response received`, { 
+        success: response.success,
+        statusCode: response.statusCode,
+        hasJobId: !!response.data?.job_id,
+        hasError: !!response.error 
+      });
+
       if (!response.success) {
         if (response.statusCode === 401) {
-          loggingService.warn('API returned 401, session expired');
+          loggingService.warn(`${methodName}: API returned 401, session expired`);
           showAlert('Session Expired', 'Please login again');
           await authService.logout();
           navigation.reset({
@@ -255,33 +348,41 @@ export default function MainChatScreen({ navigation }: any) {
           });
           return;
         }
-        loggingService.error('API request failed:', response.error);
+        loggingService.error(`${methodName}: API request failed`, { 
+          error: response.error,
+          statusCode: response.statusCode 
+        });
         throw new Error(response.error || 'Failed to submit request');
       }
 
       if (!response.data) {
-        loggingService.error('No job ID received from server');
+        loggingService.error(`${methodName}: No job ID received from server`);
         throw new Error('No job ID received from server');
       }
 
-      loggingService.info('Job submitted successfully:', response.data.job_id);
+      loggingService.info(`${methodName}: Job submitted successfully`, { 
+        jobId: response.data.job_id 
+      });
 
       // Poll for results
-      loggingService.info('Starting to poll for job results...');
+      loggingService.info(`${methodName}: Starting to poll for job results`);
       const result = await pollJobStatus(response.data.job_id);
 
       if (result) {
-        loggingService.info('Received successful result from API');
+        loggingService.info(`${methodName}: Received successful result from API`);
         setFullResponse(result);
         const parsedResults = parseStructuredResponse(result);
         setResults(parsedResults);
       } else {
-        loggingService.error('No result received from polling');
+        loggingService.error(`${methodName}: No result received from polling`);
         throw new Error('No result received');
       }
 
     } catch (error) {
-      loggingService.error('Error submitting request:', error);
+      loggingService.error(`${methodName}: Error submitting request`, { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       showAlert(
         'Error',
         error instanceof Error ? error.message : 'Failed to process your request. Please try again.'
@@ -290,24 +391,9 @@ export default function MainChatScreen({ navigation }: any) {
       setLoading(false);
       setInputText('');
       setImageUri(null);
-      loggingService.info('Request submission completed');
+      loggingService.info(`${methodName}: Request submission completed`);
     }
   };
-
-  // Loading screen while checking access
-  if (!accessChecked) {
-    return (
-      <LinearGradient
-        colors={['#A8E063', '#2E7D32']}
-        style={styles.container}
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={styles.loadingText}>Checking access...</Text>
-        </View>
-      </LinearGradient>
-    );
-  }
 
   return (
     <View style={styles.container}>
