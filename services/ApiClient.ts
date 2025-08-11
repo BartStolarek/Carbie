@@ -1,7 +1,7 @@
 // services/ApiClient.ts
 import { Platform } from 'react-native';
 
-const API_BASE_URL = 'https://bartstolarek.com';
+const API_BASE_URL = 'https://test.bartstolarek.com';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -117,6 +117,8 @@ class ApiClient {
     }
 
     console.log(`🌐 API Request: ${fetchOptions.method || 'GET'} ${endpoint}`);
+    let responseData: any = null;
+    console.log('API Request:', { url, method: fetchOptions.method, headers, body: fetchOptions.body });
     
     try {
       const response = await fetch(url, {
@@ -125,11 +127,8 @@ class ApiClient {
       });
 
       console.log(`📡 API Response: ${response.status} ${response.statusText} for ${endpoint}`);
-
-      let responseData: any = null;
-      const contentType = response.headers.get('content-type');
-      
       // Try to parse response body
+      const contentType = response.headers.get('content-type');
       try {
         if (contentType && contentType.includes('application/json')) {
           responseData = await response.json();
@@ -144,6 +143,7 @@ class ApiClient {
       }
 
       if (response.ok) {
+        console.log('API Response:', { status: response.status, data: responseData });
         return {
           success: true,
           data: responseData,
@@ -151,15 +151,10 @@ class ApiClient {
         };
       } else {
         const errorMessage = customErrorMessage || this.getErrorMessage(response.status, endpoint, responseData);
-        
-        console.error(`❌ API Error ${response.status}:`, {
-          endpoint,
-          status: response.status,
-          statusText: response.statusText,
-          responseData,
-          errorMessage,
-        });
-
+        console.error('API Error:', { endpoint, status: response.status, errorMessage, responseData });
+        if (responseData && responseData.detail) {
+          console.error('API Error Detail:', responseData.detail);
+        }
         return {
           success: false,
           error: errorMessage,
@@ -169,20 +164,13 @@ class ApiClient {
         };
       }
     } catch (networkError) {
-      console.error('🔥 Network Error:', {
-        endpoint,
-        error: networkError,
-        message: (networkError as Error).message,
-      });
-
+      console.error('API Network Error:', { endpoint, error: networkError });
       let errorMessage = 'Network error - please check your internet connection';
-      
       if ((networkError as Error).message.includes('CONNECTION_REFUSED')) {
         errorMessage = 'Cannot connect to server - make sure the API is running on localhost:8000';
       } else if ((networkError as Error).message.includes('fetch')) {
         errorMessage = 'Failed to connect to server - please check your internet connection';
       }
-
       return {
         success: false,
         error: customErrorMessage || errorMessage,

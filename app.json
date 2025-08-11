@@ -15,7 +15,8 @@
     },
     "updates": {
       "fallbackToCacheTimeout": 0,
-      "enabled": true
+      "enabled": true,
+      "url": "https://u.expo.dev/a664b9e6-0720-47fc-9226-b34a555028c7"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -35,7 +36,13 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.INTERNET",
-        "com.android.vending.BILLING"
+        "com.android.vending.BILLING",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.INTERNET",
+        "com.android.vending.BILLING",
+        "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -48,13 +55,15 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-image-picker",
-      "expo-iap"
+      "expo-image-picker"
     ],
     "extra": {
       "eas": {
         "projectId": "a664b9e6-0720-47fc-9226-b34a555028c7"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

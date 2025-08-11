@@ -2,20 +2,20 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import Purchases from 'react-native-purchases';
 
 import WelcomeScreen from './screens/WelcomeScreen';
-import TrialInfoScreen from './screens/TrialInfoScreen';
 import RegistrationScreen from './screens/RegistrationScreen';
 import LoginScreen from './screens/LoginScreen';
 import MainChatScreen from './screens/MainChatScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import AccountScreen from './screens/AccountScreen';
-import SubscriptionPaywallScreen from './screens/SubscriptionPaywallScreen';
 
 import { authService } from './services/AuthService';
+import { REVENUECAT_CONFIG } from './config/revenuecat';
 
 const Stack = createNativeStackNavigator();
 
@@ -24,15 +24,44 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    checkAuthStatus();
+    initializeApp();
   }, []);
 
-  const checkAuthStatus = async () => {
+  const initializeApp = async () => {
     try {
+      // Initialize RevenueCat
+      console.log('Initializing RevenueCat...');
+      const apiKey = Platform.OS === 'ios' ? REVENUECAT_CONFIG.API_KEY_IOS : REVENUECAT_CONFIG.API_KEY_ANDROID;
+      console.log('Using RevenueCat API key:', apiKey);
+      console.log('Platform:', Platform.OS);
+      
+      await Purchases.configure({
+        apiKey: apiKey,
+        appUserID: null, // Will be set when user logs in
+      });
+      console.log('RevenueCat initialized successfully');
+      
+      // Test RevenueCat configuration
+      try {
+        const customerInfo = await Purchases.getCustomerInfo();
+        console.log('RevenueCat customer info:', customerInfo);
+        
+        // Check offerings
+        const offerings = await Purchases.getOfferings();
+        console.log('RevenueCat offerings:', {
+          current: offerings.current?.identifier,
+          available: Object.keys(offerings.all),
+          all: offerings.all
+        });
+      } catch (error) {
+        console.error('Error getting RevenueCat customer info:', error);
+      }
+
+      // Check authentication status
       const authenticated = await authService.isAuthenticated();
       setIsAuthenticated(authenticated);
     } catch (error) {
-      console.error('Error checking auth status:', error);
+      console.error('Error initializing app:', error);
       setIsAuthenticated(false);
     } finally {
       setIsLoading(false);
@@ -74,11 +103,6 @@ export default function App() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
-          name="TrialInfo"
-          component={TrialInfoScreen}
-          options={{ title: 'Free Trial' }}
-        />
-        <Stack.Screen
           name="Registration"
           component={RegistrationScreen}
           options={{ headerShown: false }}
@@ -105,15 +129,7 @@ export default function App() {
           component={AccountScreen}
           options={{ title: 'Account' }}
         />
-        <Stack.Screen
-          name="SubscriptionPaywall"
-          component={SubscriptionPaywallScreen}
-          options={{
-            title: 'Purchase',
-            headerBackTitle: 'Back',
-            gestureEnabled: false, // Prevent swipe back when trial expired
-          }}
-        />
+        
 
       </Stack.Navigator>
     </NavigationContainer>

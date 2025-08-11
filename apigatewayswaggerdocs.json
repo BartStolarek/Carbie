@@ -1,0 +1,1619 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "apigateway",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/api/v1/health/html": {
+            "get": {
+                "tags": [
+                    "health"
+                ],
+                "summary": "Pretty Health Check Dashboard",
+                "description": "Beautiful HTML dashboard showing comprehensive health status of all services",
+                "operationId": "health_check_html_api_v1_health_html_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/health/": {
+            "get": {
+                "tags": [
+                    "health"
+                ],
+                "summary": "JSON Health Check",
+                "description": "Original JSON health check endpoint for programmatic access",
+                "operationId": "health_check_json_api_v1_health__get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Health Check Json Api V1 Health  Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/inference/infer": {
+            "post": {
+                "tags": [
+                    "inference"
+                ],
+                "summary": "Request AI Model Inference",
+                "description": "**Submit a text prompt to an AI language model for processing.**\n    \n    This endpoint queues your inference request for processing by the specified AI model.\n    Since AI inference can take time (especially for complex prompts), this endpoint \n    uses an asynchronous job queue system - you'll receive a job ID immediately, \n    then can check the status and retrieve results later.\n    \n    **How it works:**\n    1. Submit your prompt and model preferences\n    2. Receive a job ID immediately (HTTP 202 Accepted)\n    3. Use the job ID to check status and get results from other endpoints\n    \n    **Authentication Required:**\n    - Valid JWT token must be provided in Authorization header\n    - User must have \"user\" role permissions\n    \n    **Model Parameters:**\n    - `model_name`: Name of the AI model to use (required)\n    - `model_version`: Version of the model (defaults to \"latest\")\n    - `prompt`: Your text input for the AI model (required)\n    - `max_new_tokens`: Maximum length of generated response (default: 1024)\n    - `temperature`: Controls randomness (0.0 = deterministic, 1.0 = very random, default: 0.7)\n    - `top_p`: Controls diversity of word selection (default: 0.9)\n    - `repetition_penalty`: Reduces repetitive text (default: 1.1)\n    \n    **Example Request:**\n    ```json\n    {\n        \"model_name\": \"llama2-7b\",\n        \"model_version\": \"latest\",\n        \"prompt\": \"Explain quantum computing in simple terms\",\n        \"max_new_tokens\": 500,\n        \"temperature\": 0.7,\n        \"top_p\": 0.9,\n        \"repetition_penalty\": 1.1\n    }\n    ```\n    \n    **Example Response:**\n    ```json\n    {\n        \"job_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n        \"status\": \"queued\"\n    }\n    ```\n    \n    **Next Steps:**\n    After receiving a job ID, use other endpoints to:\n    - Check job status: `GET /api/v1/jobs/{job_id}/status`\n    - Retrieve results: `GET /api/v1/jobs/{job_id}/result`",
+                "operationId": "request_inference_api_v1_inference_infer_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/InferenceRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Inference request successfully queued for processing",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InferenceJobResponse"
+                                },
+                                "example": {
+                                    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                                    "status": "queued"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication failed - invalid or missing token",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Invalid or expired token"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Access forbidden - insufficient permissions",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Insufficient permissions to use inference API"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error - invalid request format",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": [
+                                        {
+                                            "loc": [
+                                                "body",
+                                                "model_name"
+                                            ],
+                                            "msg": "field required",
+                                            "type": "value_error.missing"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error - failed to process request",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Failed to queue inference request: Database connection error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/": {
+            "post": {
+                "tags": [
+                    "user"
+                ],
+                "summary": "Create User",
+                "description": "Register a new user and create associated account, or create account for existing user",
+                "operationId": "create_user_api_v1_user__post",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserCreate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserWithAccountResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "get": {
+                "tags": [
+                    "user"
+                ],
+                "summary": "Read Users",
+                "description": "Get list of users (admin only)",
+                "operationId": "read_users_api_v1_user__get",
+                "security": [
+                    {
+                        "HTTPBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "skip",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 0,
+                            "title": "Skip"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 100,
+                            "title": "Limit"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/UserRead"
+                                    },
+                                    "title": "Response Read Users Api V1 User  Get"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/user/me": {
+            "get": {
+                "tags": [
+                    "user"
+                ],
+                "summary": "Read User Me",
+                "description": "Get current user profile",
+                "operationId": "read_user_me_api_v1_user_me_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserRead"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "HTTPBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/user/{user_id}": {
+            "get": {
+                "tags": [
+                    "user"
+                ],
+                "summary": "Read User",
+                "description": "Get a specific user by ID (admin or self only)",
+                "operationId": "read_user_api_v1_user__user_id__get",
+                "security": [
+                    {
+                        "HTTPBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "User Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserRead"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "user"
+                ],
+                "summary": "Update User",
+                "description": "Update user (admin or self only)",
+                "operationId": "update_user_api_v1_user__user_id__put",
+                "security": [
+                    {
+                        "HTTPBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "User Id"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UserUpdate"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserRead"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "user"
+                ],
+                "summary": "Delete User",
+                "description": "Delete user (admin or self only)",
+                "operationId": "delete_user_api_v1_user__user_id__delete",
+                "security": [
+                    {
+                        "HTTPBearer": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "title": "User Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Successful Response"
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/token/login": {
+            "post": {
+                "tags": [
+                    "token"
+                ],
+                "summary": "Login",
+                "description": "Authenticate user and return access token",
+                "operationId": "login_api_v1_token_login_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TokenResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/token/verify": {
+            "post": {
+                "tags": [
+                    "token"
+                ],
+                "summary": "Verify Token",
+                "description": "Verify if a token is valid (for client-side validation)",
+                "operationId": "verify_token_api_v1_token_verify_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/queue/stats": {
+            "get": {
+                "tags": [
+                    "queue"
+                ],
+                "summary": "Get Queue Statistics",
+                "description": "**Get real-time statistics and health information about all job queues.**\n    \n    This endpoint provides comprehensive monitoring data about the background job \n    processing system, including queue lengths, processing rates, and system health.\n    \n    **What You'll Get:**\n    - **Queue Lengths** - How many jobs are waiting in each queue\n    - **Processing Stats** - Jobs completed, failed, and currently running\n    - **Performance Metrics** - Average processing times and throughput rates\n    - **System Health** - Queue system status and any issues\n    - **Historical Data** - Recent trends and processing patterns\n    \n    **Use Cases:**\n    - **System Monitoring** - Check if queues are backing up\n    - **Performance Analysis** - Understand processing bottlenecks\n    - **Capacity Planning** - Determine if more workers are needed\n    - **Health Checks** - Verify the queue system is functioning\n    - **Debugging** - Identify issues with specific job types\n    \n    **Monitoring Recommendations:**\n    - Check queue stats regularly during peak usage\n    - Alert if queue lengths exceed normal thresholds\n    - Monitor average processing times for performance regressions\n    - Track failed job rates to identify system issues\n    \n    **Example Response Structure:**\n    ```json\n    {\n        \"total_queued_jobs\": 15,\n        \"total_processing_jobs\": 3,\n        \"total_completed_jobs\": 1247,\n        \"total_failed_jobs\": 23,\n        \"queue_breakdown\": {\n            \"inference\": {\n                \"queued\": 12,\n                \"processing\": 2,\n                \"avg_processing_time_seconds\": 45.3\n            },\n            \"other_services\": {\n                \"queued\": 3,\n                \"processing\": 1,\n                \"avg_processing_time_seconds\": 12.1\n            }\n        },\n        \"system_health\": {\n            \"status\": \"healthy\",\n            \"redis_connected\": true,\n            \"database_connected\": true,\n            \"last_job_completed\": \"2025-05-29T12:45:23Z\"\n        },\n        \"performance_metrics\": {\n            \"jobs_per_minute\": 2.3,\n            \"success_rate_percentage\": 98.2,\n            \"avg_queue_wait_seconds\": 18.7\n        }\n    }\n    ```\n    \n    **Authentication:**\n    This endpoint may require admin privileges in production environments \n    to protect sensitive system information.",
+                "operationId": "get_queue_stats_api_v1_queue_stats_get",
+                "responses": {
+                    "200": {
+                        "description": "Queue statistics retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/QueueStatsResponse"
+                                },
+                                "example": {
+                                    "total_queued_jobs": 8,
+                                    "total_processing_jobs": 2,
+                                    "total_completed_jobs": 543,
+                                    "total_failed_jobs": 12,
+                                    "queue_breakdown": {
+                                        "inference": {
+                                            "queued": 6,
+                                            "processing": 1,
+                                            "completed_today": 89,
+                                            "failed_today": 2,
+                                            "avg_processing_time_seconds": 42.7,
+                                            "longest_wait_seconds": 125
+                                        },
+                                        "image_processing": {
+                                            "queued": 2,
+                                            "processing": 1,
+                                            "completed_today": 34,
+                                            "failed_today": 1,
+                                            "avg_processing_time_seconds": 15.2,
+                                            "longest_wait_seconds": 67
+                                        }
+                                    },
+                                    "system_health": {
+                                        "status": "healthy",
+                                        "redis_connected": true,
+                                        "database_connected": true,
+                                        "worker_count": 4,
+                                        "last_job_completed": "2025-05-29T12:45:23Z",
+                                        "uptime_hours": 72.3
+                                    },
+                                    "performance_metrics": {
+                                        "jobs_per_minute": 1.8,
+                                        "success_rate_percentage": 97.8,
+                                        "avg_queue_wait_seconds": 23.4,
+                                        "peak_queue_length_today": 45,
+                                        "busiest_hour": "14:00-15:00"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required - missing or invalid token",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Authentication required to access queue statistics"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Access forbidden - admin privileges required",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Admin privileges required to access queue statistics"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error - failed to retrieve queue statistics",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Failed to retrieve queue statistics: Redis connection error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/job/status/{job_id}": {
+            "get": {
+                "tags": [
+                    "job"
+                ],
+                "summary": "Check Job Status",
+                "description": "**Check the current status of any background job by its ID.**\n    \n    After submitting an inference request or other background job, use this endpoint \n    to monitor progress and check if processing is complete.\n    \n    **Job Status Values:**\n    - `queued` - Job is waiting in line for processing\n    - `processing` - Job is currently being worked on\n    - `completed` - Job finished successfully (ready to get results)\n    - `failed` - Job encountered an error during processing\n    - `cancelled` - Job was manually cancelled\n    \n    **When to Use:**\n    - After receiving a job ID from `/api/v1/inference/infer`\n    - To check if your AI inference is ready\n    - To monitor long-running background tasks\n    - To get error details if something went wrong\n    \n    **Response Information:**\n    The response includes job metadata like creation time, current status, \n    processing progress, and error messages (if applicable).\n    \n    **Example Usage Flow:**\n    1. Submit inference: `POST /api/v1/inference/infer` → get job_id\n    2. Check status: `GET /api/v1/jobs/status/{job_id}` → see if completed\n    3. Get results: `GET /api/v1/jobs/result/{job_id}` → retrieve AI response\n    \n    **Polling Recommendations:**\n    - Check status every 2-5 seconds for quick jobs\n    - Check every 10-30 seconds for longer jobs\n    - Stop polling once status is `completed` or `failed`",
+                "operationId": "get_job_status_api_v1_job_status__job_id__get",
+                "parameters": [
+                    {
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Job Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Job status retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true,
+                                    "title": "Response Get Job Status Api V1 Job Status  Job Id  Get"
+                                },
+                                "examples": {
+                                    "queued": {
+                                        "summary": "Job waiting in queue",
+                                        "value": {
+                                            "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                                            "status": "queued",
+                                            "created_at": "2025-05-29T12:30:45Z",
+                                            "queue_position": 3,
+                                            "estimated_wait_seconds": 45
+                                        }
+                                    },
+                                    "processing": {
+                                        "summary": "Job currently processing",
+                                        "value": {
+                                            "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                                            "status": "processing",
+                                            "created_at": "2025-05-29T12:30:45Z",
+                                            "started_at": "2025-05-29T12:31:30Z",
+                                            "progress_percentage": 65
+                                        }
+                                    },
+                                    "completed": {
+                                        "summary": "Job finished successfully",
+                                        "value": {
+                                            "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                                            "status": "completed",
+                                            "created_at": "2025-05-29T12:30:45Z",
+                                            "completed_at": "2025-05-29T12:32:15Z",
+                                            "processing_time_seconds": 45
+                                        }
+                                    },
+                                    "failed": {
+                                        "summary": "Job failed with error",
+                                        "value": {
+                                            "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                                            "status": "failed",
+                                            "created_at": "2025-05-29T12:30:45Z",
+                                            "error_message": "Model not available",
+                                            "error_code": "MODEL_UNAVAILABLE"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication failed - invalid or missing token",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Invalid or expired token"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found - invalid job ID",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Job not found"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/job/result/{job_id}": {
+            "get": {
+                "tags": [
+                    "job"
+                ],
+                "summary": "Get Job Results",
+                "description": "**Retrieve the final results from a completed background job.**\n    \n    Use this endpoint to get the actual AI-generated response after your inference \n    job has finished processing. Only works for jobs with status \"completed\".\n    \n    **Prerequisites:**\n    - Job must have status \"completed\" (check with `/api/v1/jobs/status/{job_id}`)\n    - Must be the same user who originally submitted the job\n    - Valid authentication token required\n    \n    **Response Content:**\n    For AI inference jobs, you'll receive:\n    - The original prompt you submitted\n    - The AI model's generated text response OR structured data\n    - Model metadata (name, version used)\n    - Usage statistics (tokens consumed, processing time)\n    - Generation parameters that were applied\n    \n    **Typical Workflow:**\n    1. Submit inference: `POST /api/v1/inference/infer`\n    2. Poll status: `GET /api/v1/jobs/status/{job_id}` until \"completed\"\n    3. Get results: `GET /api/v1/jobs/result/{job_id}` (this endpoint)\n    \n    **Error Handling:**\n    - If job is still processing: Returns 400 with current status\n    - If job failed: Use status endpoint to get error details\n    - If job not found: Returns 404 error\n    \n    **Example AI Response:**\n    ```json\n    {\n        \"model_name\": \"claude-haiku\",\n        \"model_version\": \"latest\",\n        \"prompt\": \"chicken pesto sandwich\",\n        \"structured_data\": {...},\n        \"usage\": {...},\n        \"elapsed_time_seconds\": 7.8\n    }\n    ```",
+                "operationId": "get_job_result_api_v1_job_result__job_id__get",
+                "parameters": [
+                    {
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "title": "Job Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Job results retrieved successfully - flexible response format",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": true,
+                                    "title": "Response Get Job Result Api V1 Job Result  Job Id  Get"
+                                },
+                                "examples": {
+                                    "text_response": {
+                                        "summary": "Standard text generation response",
+                                        "value": {
+                                            "model_name": "llama2-7b",
+                                            "model_version": "latest",
+                                            "prompt": "Explain quantum computing in simple terms",
+                                            "generated_text": "Quantum computing is a revolutionary approach...",
+                                            "usage": {
+                                                "prompt_tokens": 12,
+                                                "completion_tokens": 234,
+                                                "total_tokens": 246
+                                            },
+                                            "elapsed_time_seconds": 45.7
+                                        }
+                                    },
+                                    "structured_response": {
+                                        "summary": "Structured data response (e.g., from Carbie)",
+                                        "value": {
+                                            "model_name": "claude-haiku",
+                                            "model_version": "latest",
+                                            "prompt": "chicken pesto sandwich",
+                                            "structured_data": {
+                                                "is_food_related": true,
+                                                "ingredients": [
+                                                    {
+                                                        "ingredient": "Chicken",
+                                                        "low_carb_estimate": 0.0,
+                                                        "high_carb_estimate": 1.0
+                                                    }
+                                                ]
+                                            },
+                                            "usage": {
+                                                "total_tokens": 0
+                                            },
+                                            "elapsed_time_seconds": 7.8
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Job not yet completed - check status first",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "still_processing": {
+                                        "summary": "Job still in progress",
+                                        "value": {
+                                            "detail": "Job is not completed yet. Current status: processing"
+                                        }
+                                    },
+                                    "failed_job": {
+                                        "summary": "Job failed during processing",
+                                        "value": {
+                                            "detail": "Job is not completed yet. Current status: failed"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication failed - invalid or missing token",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Invalid or expired token"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Job not found - invalid job ID",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Job not found"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error - could not retrieve results",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Could not retrieve job result"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/carbie/": {
+            "post": {
+                "tags": [
+                    "carbie",
+                    "Carbohydrate Estimation"
+                ],
+                "summary": "Request Carbohydrate Estimation",
+                "description": "**Submit a request to estimate carbohydrate intake based on food data.**\n    \n    This endpoint processes food information through an AI model to estimate carbohydrate content.\n    The request is queued for processing and returns immediately with a job ID for tracking.\n    \n    ## How it works:\n    1. **Authentication**: Requires a valid Bearer token in the Authorization header\n    2. **Validation**: Checks user permissions and request format\n    3. **Queuing**: Creates a background job for AI processing\n    4. **Response**: Returns job ID to track processing status\n    \n    ## Usage Example:\n    ```bash\n    curl -X POST \"https://bartstolarek.com/api/v1/inference/carbie/\" \\\n      -H \"Authorization: Bearer your_token_here\" \\\n      -H \"Content-Type: application/json\" \\\n      -d '{\n        \"model_name\": \"carbie-v1\",\n        \"model_version\": \"latest\",\n        \"prompt\": \"Large apple, 1 cup cooked rice, 2 slices bread\",\n        \"max_new_tokens\": 512,\n        \"temperature\": 0.3\n      }'\n    ```\n    \n    ## Next Steps:\n    After receiving the job ID, use the job status endpoint to check when processing is complete\n    and retrieve the carbohydrate estimation results.\n    \n    ## Processing Time:\n    Typical processing time is 30-120 seconds depending on model complexity and server load.",
+                "operationId": "request_carbohydrate_estimation",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/InferenceCarbieRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Carbohydrate estimation request successfully queued for processing",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InferenceJobResponse"
+                                },
+                                "example": {
+                                    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                                    "status": "queued"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication failed - invalid or missing token",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Invalid or expired token"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Access forbidden - insufficient permissions",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Insufficient permissions to use inference API"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error - invalid request format or missing required fields",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": [
+                                        {
+                                            "loc": [
+                                                "body",
+                                                "model_name"
+                                            ],
+                                            "msg": "field required",
+                                            "type": "value_error.missing"
+                                        },
+                                        {
+                                            "loc": [
+                                                "body",
+                                                "prompt"
+                                            ],
+                                            "msg": "ensure this value has at least 1 character",
+                                            "type": "value_error.any_str.min_length"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error - failed to process request due to internal issues",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "detail": "Failed to queue inference request: Database connection error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "HTTPBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/carbie/google-play": {
+            "post": {
+                "tags": [
+                    "carbie",
+                    "Webhooks",
+                    "Proxy"
+                ],
+                "summary": "Google Play Subscription Webhook Proxy",
+                "description": "**Proxy Google Play webhook notifications to the Account Service.**\n    \n    This endpoint receives webhook notifications from Google Play Store and forwards\n    them to the Account Service for processing. The APIGateway acts as a proxy,\n    handling basic validation and routing.\n    \n    ## How it works:\n    1. **Receive Webhook**: Google Play calls this endpoint\n    2. **Basic Validation**: Verify webhook format and authenticity\n    3. **Forward to Account Service**: Proxy the request to account service\n    4. **Return Response**: Pass account service response back to Google Play\n    \n    ## Supported Events:\n    All Google Play subscription events are forwarded to the Account Service:\n    - SUBSCRIPTION_PURCHASED, RENEWED, CANCELED, EXPIRED\n    - SUBSCRIPTION_RECOVERED, ON_HOLD, IN_GRACE_PERIOD\n    - And all other notification types\n    \n    ## Security:\n    - Basic webhook validation at gateway level\n    - Full processing and business logic handled by Account Service\n    - Token validation not required (webhook comes from Google Play)\n    \n    ## Processing:\n    This is a simple proxy - all subscription logic is in the Account Service.",
+                "operationId": "proxy_google_play_webhook",
+                "responses": {
+                    "200": {
+                        "description": "Webhook forwarded and processed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/WebhookResponse"
+                                },
+                                "example": {
+                                    "success": true,
+                                    "message": "Webhook processed successfully by Account Service"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid webhook payload",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "success": false,
+                                    "message": "Invalid webhook payload format"
+                                }
+                            }
+                        }
+                    },
+                    "502": {
+                        "description": "Account Service unavailable",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "success": false,
+                                    "message": "Account Service temporarily unavailable"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Gateway error",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "success": false,
+                                    "message": "Gateway error processing webhook"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/carbie/access-validate": {
+            "get": {
+                "tags": [
+                    "carbie",
+                    "Access Validation"
+                ],
+                "summary": "Check if user has access to premium features",
+                "description": "**This endpoint validates whether the authenticated user has access to premium features like carbie estimation.**\n    \n    It checks subscription status, trial periods, and usage limits. Called before each premium feature use.\n    \n    ## Authentication\n    Required - Bearer token\n    \n    ## Business Rules\n    - **Paid users**: Access granted if subscription is active and not expired\n    - **Trial users**: Access granted for 7 days from registration date\n    - **Unverified users**: Access denied, must register first\n    - **Suspended users**: Access denied regardless of subscription",
+                "operationId": "validate_user_access",
+                "responses": {
+                    "200": {
+                        "description": "Access validation completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Validate User Access"
+                                },
+                                "examples": {
+                                    "paid_user": {
+                                        "summary": "Paid user with active subscription",
+                                        "value": {
+                                            "access_granted": true,
+                                            "user_type": "paid",
+                                            "subscription": {
+                                                "status": "active",
+                                                "expires_at": "2025-08-13T12:00:00Z",
+                                                "product_id": "carbie_monthly_subscription"
+                                            }
+                                        }
+                                    },
+                                    "trial_user": {
+                                        "summary": "Trial user with remaining days",
+                                        "value": {
+                                            "access_granted": true,
+                                            "user_type": "trial",
+                                            "trial": {
+                                                "days_remaining": 5,
+                                                "expires_at": "2025-07-20T12:00:00Z"
+                                            }
+                                        }
+                                    },
+                                    "access_denied": {
+                                        "summary": "Access denied - trial expired",
+                                        "value": {
+                                            "access_granted": false,
+                                            "reason": "trial_expired",
+                                            "paywall_required": true,
+                                            "trial": {
+                                                "days_remaining": 0,
+                                                "expired_at": "2025-07-13T12:00:00Z"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid or missing authentication token"
+                    },
+                    "502": {
+                        "description": "Account Service temporarily unavailable"
+                    },
+                    "500": {
+                        "description": "Internal server error processing access validation"
+                    }
+                },
+                "security": [
+                    {
+                        "HTTPBearer": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/carbie/subscription/verify-purchase": {
+            "post": {
+                "tags": [
+                    "carbie",
+                    "Subscriptions"
+                ],
+                "summary": "Verify and activate a subscription purchase",
+                "description": "**Verify and activate a subscription purchase from Google Play Store.**\n    \n    This endpoint verifies a purchase made through Google Play Store by validating the purchase token \n    with Google's servers. If valid, it activates the user's subscription and updates their account status to \"paid\".\n    \n    ## Authentication\n    Required - Bearer token\n    \n    ## Business Rules\n    - Purchase token must be valid with Google Play Developer API\n    - Each purchase token can only be processed once\n    - User account is immediately upgraded to \"paid\" status\n    - Subscription expiry date is set based on Google Play response\n    - Existing trial period is replaced by paid subscription",
+                "operationId": "verify_subscription_purchase",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SubscriptionVerifyRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Purchase verified successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": true,
+                                    "type": "object",
+                                    "title": "Response Verify Subscription Purchase"
+                                },
+                                "example": {
+                                    "success": true,
+                                    "subscription": {
+                                        "id": "sub_12345",
+                                        "status": "active",
+                                        "product_id": "carbie_monthly_subscription",
+                                        "expires_at": "2025-08-13T12:00:00Z",
+                                        "auto_renewing": true
+                                    },
+                                    "user": {
+                                        "user_type": "paid",
+                                        "premium_features_enabled": true
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid purchase or verification failed"
+                    },
+                    "401": {
+                        "description": "Invalid or missing authentication token"
+                    },
+                    "409": {
+                        "description": "Purchase already processed"
+                    },
+                    "502": {
+                        "description": "Account Service unavailable"
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "HTTPBearer": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "InferenceCarbieRequest": {
+                "properties": {
+                    "model_name": {
+                        "type": "string",
+                        "title": "Model Name"
+                    },
+                    "model_version": {
+                        "type": "string",
+                        "title": "Model Version",
+                        "default": "latest"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "title": "Prompt"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "model_name",
+                    "prompt"
+                ],
+                "title": "InferenceCarbieRequest",
+                "description": "Model for the inference request to Carbie."
+            },
+            "InferenceJobResponse": {
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "title": "Job Id"
+                    },
+                    "status": {
+                        "type": "string",
+                        "title": "Status"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "job_id",
+                    "status"
+                ],
+                "title": "InferenceJobResponse",
+                "description": "Response model for queued inference jobs"
+            },
+            "InferenceRequest": {
+                "properties": {
+                    "model_name": {
+                        "type": "string",
+                        "title": "Model Name"
+                    },
+                    "model_version": {
+                        "type": "string",
+                        "title": "Model Version",
+                        "default": "latest"
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "title": "Prompt"
+                    },
+                    "max_new_tokens": {
+                        "type": "integer",
+                        "title": "Max New Tokens",
+                        "default": 1024
+                    },
+                    "temperature": {
+                        "type": "number",
+                        "title": "Temperature",
+                        "default": 0.7
+                    },
+                    "top_p": {
+                        "type": "number",
+                        "title": "Top P",
+                        "default": 0.9
+                    },
+                    "repetition_penalty": {
+                        "type": "number",
+                        "title": "Repetition Penalty",
+                        "default": 1.1
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "model_name",
+                    "prompt"
+                ],
+                "title": "InferenceRequest",
+                "description": "Model for the inference request."
+            },
+            "LoginRequest": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "title": "Password"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "title": "LoginRequest"
+            },
+            "QueueStats": {
+                "properties": {
+                    "queued_count": {
+                        "type": "integer",
+                        "title": "Queued Count"
+                    },
+                    "processing_count": {
+                        "type": "integer",
+                        "title": "Processing Count"
+                    },
+                    "status_counts": {
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "type": "object",
+                        "title": "Status Counts"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "queued_count",
+                    "processing_count",
+                    "status_counts"
+                ],
+                "title": "QueueStats"
+            },
+            "QueueStatsResponse": {
+                "properties": {
+                    "inference": {
+                        "$ref": "#/components/schemas/QueueStats"
+                    },
+                    "authentication": {
+                        "$ref": "#/components/schemas/QueueStats"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "inference",
+                    "authentication"
+                ],
+                "title": "QueueStatsResponse"
+            },
+            "SubscriptionVerifyRequest": {
+                "properties": {
+                    "product_id": {
+                        "type": "string",
+                        "title": "Product Id"
+                    },
+                    "purchase_token": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Purchase Token"
+                    },
+                    "platform": {
+                        "type": "string",
+                        "title": "Platform"
+                    },
+                    "transaction_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Transaction Id"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "product_id",
+                    "platform"
+                ],
+                "title": "SubscriptionVerifyRequest"
+            },
+            "System": {
+                "type": "string",
+                "enum": [
+                    "general",
+                    "carbie"
+                ],
+                "title": "System"
+            },
+            "TokenRequest": {
+                "properties": {
+                    "token": {
+                        "type": "string",
+                        "title": "Token"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "token"
+                ],
+                "title": "TokenRequest"
+            },
+            "TokenResponse": {
+                "properties": {
+                    "access_token": {
+                        "type": "string",
+                        "title": "Access Token"
+                    },
+                    "token_type": {
+                        "type": "string",
+                        "title": "Token Type",
+                        "default": "bearer"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "access_token"
+                ],
+                "title": "TokenResponse"
+            },
+            "UserCreate": {
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    },
+                    "password": {
+                        "type": "string",
+                        "title": "Password"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "title": "Is Active",
+                        "default": true
+                    },
+                    "is_admin": {
+                        "type": "boolean",
+                        "title": "Is Admin",
+                        "default": false
+                    },
+                    "system": {
+                        "$ref": "#/components/schemas/System"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "email",
+                    "password",
+                    "system"
+                ],
+                "title": "UserCreate"
+            },
+            "UserRead": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "title": "Id"
+                    },
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "title": "Is Active"
+                    },
+                    "is_admin": {
+                        "type": "boolean",
+                        "title": "Is Admin"
+                    },
+                    "system": {
+                        "$ref": "#/components/schemas/System"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "email",
+                    "is_active",
+                    "is_admin",
+                    "system"
+                ],
+                "title": "UserRead"
+            },
+            "UserUpdate": {
+                "properties": {
+                    "email": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Email"
+                    },
+                    "password": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Password"
+                    },
+                    "is_active": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Is Active"
+                    },
+                    "is_admin": {
+                        "anyOf": [
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Is Admin"
+                    },
+                    "system": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/System"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "type": "object",
+                "title": "UserUpdate"
+            },
+            "UserWithAccountResponse": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "title": "Id"
+                    },
+                    "email": {
+                        "type": "string",
+                        "title": "Email"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "title": "Is Active"
+                    },
+                    "is_admin": {
+                        "type": "boolean",
+                        "title": "Is Admin"
+                    },
+                    "system": {
+                        "type": "string",
+                        "title": "System"
+                    },
+                    "user_type": {
+                        "type": "string",
+                        "title": "User Type"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "title": "Created At"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "title": "Updated At"
+                    },
+                    "account": {
+                        "additionalProperties": true,
+                        "type": "object",
+                        "title": "Account"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "id",
+                    "email",
+                    "is_active",
+                    "is_admin",
+                    "system",
+                    "user_type",
+                    "created_at",
+                    "updated_at",
+                    "account"
+                ],
+                "title": "UserWithAccountResponse"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
+            },
+            "WebhookResponse": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "title": "Success"
+                    },
+                    "message": {
+                        "type": "string",
+                        "title": "Message"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "success",
+                    "message"
+                ],
+                "title": "WebhookResponse",
+                "description": "Response model for webhook processing"
+            }
+        },
+        "securitySchemes": {
+            "HTTPBearer": {
+                "type": "http",
+                "scheme": "bearer"
+            }
+        }
+    }
+}
