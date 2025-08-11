@@ -58,6 +58,7 @@ export default function MainChatScreen({ navigation }: any) {
   const [fullResponse, setFullResponse] = useState<CarbieResult | null>(null);
   const [analysisMessage, setAnalysisMessage] = useState<string>('');
   const [logs, setLogs] = useState<LogMessage[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Animate the title scaling in
   const titleScale = useRef(new Animated.Value(0.8)).current;
@@ -81,6 +82,21 @@ export default function MainChatScreen({ navigation }: any) {
     React.useCallback(() => {
       loggingService.info('MainChatScreen: Screen focused - starting access check');
       
+      // Check admin status when screen is focused
+      const checkAdminStatus = async () => {
+        try {
+          const adminStatus = await authService.isAdmin();
+          setIsAdmin(adminStatus);
+          loggingService.info('MainChatScreen: Admin status checked', { isAdmin: adminStatus });
+        } catch (error) {
+          loggingService.error('MainChatScreen: Error checking admin status', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          });
+          setIsAdmin(false);
+        }
+      };
+      
+      checkAdminStatus();
     }, [])
   );
 
@@ -440,14 +456,18 @@ export default function MainChatScreen({ navigation }: any) {
             <CarbAbsorptionChart ingredients={fullResponse.structured_data.ingredients} />
           )}
 
+          {/* Debug Panel Component - Inside ScrollView, only visible for admins */}
+          {isAdmin && (
+            <DebugPanel 
+              fullResponse={fullResponse} 
+              logs={logs}
+              initiallyExpanded={true} 
+            />
+          )}
+
         </ScrollView>
 
-        {/* Debug Panel Component - Outside ScrollView, always visible */}
-        <DebugPanel 
-          fullResponse={fullResponse} 
-          logs={logs}
-          initiallyExpanded={true} 
-        />
+        
       </LinearGradient>
     </View>
   );
