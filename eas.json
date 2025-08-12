@@ -15,20 +15,20 @@
     },
     "production": {
       "android": {
-        "buildType": "apk"
+        "autoIncrement": true
       },
       "ios": {
         "autoIncrement": true
       },
       "channel": "production"
     },
-    "production-aab": {
+    "production-apk": {
       "extends": "production",
       "android": {
-        "buildType": "app-bundle",
+        "buildType": "apk",
         "autoIncrement": true
       },
-      "channel": "production-aab"
+      "channel": "production-apk"
     }
   },
   "submit": {
