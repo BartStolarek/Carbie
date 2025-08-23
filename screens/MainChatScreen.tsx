@@ -330,21 +330,98 @@ export default function MainChatScreen({ navigation }: any) {
 
       // Prepare prompt
       let prompt = inputText.trim();
-      if (imageUri) {
-        prompt += imageUri ? '\n[Image attached - please analyze the food items in the image]' : '';
-      }
+      
 
       loggingService.info(`${methodName}: Submitting request to API`, { 
         promptLength: prompt.length,
         hasImage: !!imageUri 
       });
       
-      // Submit to Carbie inference endpoint using API client
-      const response = await apiClient.post<JobResponse>('/api/v1/carbie/', {
-        model_name: 'claude-haiku',
-        model_version: 'latest',
-        prompt: prompt,
-      });
+      let response: any;
+      
+      if (imageUri) {
+        // Validate image URI before processing
+        // Support file://, http://, https://, and data: URIs (base64 images)
+        if (!imageUri.startsWith('file://') && 
+            !imageUri.startsWith('http://') && 
+            !imageUri.startsWith('https://') && 
+            !imageUri.startsWith('data:')) {
+          loggingService.warn(`${methodName}: Invalid image URI format`, { imageUri });
+          showAlert('Invalid Image', 'The selected image format is not supported. Please try another image.');
+          return;
+        }
+        
+        // Convert image URI to File/Blob and send as multipart
+        loggingService.info(`${methodName}: Converting image URI to file and sending as multipart`, { imageUri });
+        
+        try {
+          let imageBlob: Blob;
+          
+          if (imageUri.startsWith('data:')) {
+            // Handle base64 data URI (common in web/Expo)
+            loggingService.debug(`${methodName}: Processing base64 data URI`, { 
+              dataUriLength: imageUri.length,
+              dataUriPrefix: imageUri.substring(0, 50) + '...' 
+            });
+            const response = await fetch(imageUri);
+            imageBlob = await response.blob();
+          } else {
+            // Handle file:// or http:// URIs
+            loggingService.debug(`${methodName}: Fetching image from URI`);
+            const imageResponse = await fetch(imageUri);
+            loggingService.debug(`${methodName}: Image fetched, converting to blob`);
+            imageBlob = await imageResponse.blob();
+          }
+          
+          loggingService.info(`${methodName}: Image converted to blob successfully`, { 
+            blobSize: imageBlob.size,
+            blobType: imageBlob.type 
+          });
+          
+          // For React Native compatibility, use the blob directly instead of File constructor
+          // Create FormData manually for the multipart request
+          const formData = new FormData();
+          formData.append('model_name', 'claude-haiku');
+          formData.append('model_version', 'latest');
+          formData.append('prompt', prompt);
+          formData.append('image', imageBlob, 'food_image.jpg');
+          
+          // Send multipart request with both text and image
+          response = await apiClient.postMultipart<JobResponse>('/api/v1/carbie/', {
+            model_name: 'claude-haiku',
+            model_version: 'latest',
+            prompt: prompt,
+            image: imageBlob,
+          });
+          
+          loggingService.info(`${methodName}: Multipart request sent successfully`, { 
+            hasImage: true,
+            imageSize: imageBlob.size 
+          });
+        } catch (imageError) {
+          loggingService.error(`${methodName}: Failed to process image for upload`, { 
+            error: imageError instanceof Error ? imageError.message : 'Unknown error',
+            imageUri,
+            stack: imageError instanceof Error ? imageError.stack : undefined
+          });
+          // Fallback to text-only request if image processing fails
+          showAlert('Image Upload Failed', 'Failed to upload image. Proceeding with text-only analysis.');
+          loggingService.info(`${methodName}: Falling back to text-only request due to image processing failure`);
+          response = await apiClient.post<JobResponse>('/api/v1/carbie/', {
+            model_name: 'claude-haiku',
+            model_version: 'latest',
+            prompt: prompt,
+          });
+        }
+      } else {
+        // Text-only request
+        loggingService.info(`${methodName}: Sending text-only request`);
+        response = await apiClient.post<JobResponse>('/api/v1/carbie/', {
+          model_name: 'claude-haiku',
+          model_version: 'latest',
+          prompt: prompt,
+        });
+      }
 
       loggingService.info(`${methodName}: API response received`, { 
         success: response.success,

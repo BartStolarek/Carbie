@@ -18,6 +18,10 @@ export interface ApiRequestOptions extends RequestInit {
   customErrorMessage?: string;
 }
 
+export interface MultipartData {
+  [key: string]: string | File | Blob;
+}
+
 class ApiClient {
   private token: string | null = null;
 
@@ -165,6 +169,106 @@ class ApiClient {
       }
     } catch (networkError) {
       console.error('API Network Error:', { endpoint, error: networkError });
+      let errorMessage = 'Network error - please check your internet connection';
+      if ((networkError as Error).message.includes('CONNECTION_REFUSED')) {
+        errorMessage = 'Cannot connect to server - make sure the API is running on localhost:8000';
+      } else if ((networkError as Error).message.includes('fetch')) {
+        errorMessage = 'Failed to connect to server - please check your internet connection';
+      }
+      return {
+        success: false,
+        error: customErrorMessage || errorMessage,
+        isNetworkError: true,
+      };
+    }
+  }
+
+  // New method for multipart/form-data requests (file uploads)
+  async postMultipart<T = any>(
+    endpoint: string, 
+    data: MultipartData, 
+    options: ApiRequestOptions = {}
+  ): Promise<ApiResponse<T>> {
+    const { skipAuth = false, customErrorMessage, ...fetchOptions } = options;
+    
+    const url = `${API_BASE_URL}${endpoint}`;
+    
+    // Create FormData for multipart request
+    const formData = new FormData();
+    
+    // Add all data to FormData
+    Object.keys(data).forEach(key => {
+      const value = data[key];
+      if (value instanceof File || value instanceof Blob) {
+        formData.append(key, value);
+      } else {
+        formData.append(key, String(value));
+      }
+    });
+
+    // Prepare headers (don't set Content-Type for FormData, let browser set it with boundary)
+    const headers: Record<string, string> = {};
+    
+    // Add authentication if not skipped
+    if (!skipAuth) {
+      const token = this.getStoredToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+
+    console.log(`🌐 API Multipart Request: POST ${endpoint}`);
+    console.log('API Multipart Request:', { url, method: 'POST', headers, formDataKeys: Object.keys(data) });
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: formData,
+        ...fetchOptions,
+      });
+
+      console.log(`📡 API Multipart Response: ${response.status} ${response.statusText} for ${endpoint}`);
+      let responseData: any = null;
+      
+      // Try to parse response body
+      const contentType = response.headers.get('content-type');
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          responseData = await response.json();
+        } else {
+          const text = await response.text();
+          if (text) {
+            responseData = { message: text };
+          }
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse response body:', parseError);
+      }
+
+      if (response.ok) {
+        console.log('API Multipart Response:', { status: response.status, data: responseData });
+        return {
+          success: true,
+          data: responseData,
+          statusCode: response.status,
+        };
+      } else {
+        const errorMessage = customErrorMessage || this.getErrorMessage(response.status, endpoint, responseData);
+        console.error('API Multipart Error:', { endpoint, status: response.status, errorMessage, responseData });
+        if (responseData && responseData.detail) {
+          console.error('API Multipart Error Detail:', responseData.detail);
+        }
+        return {
+          success: false,
+          error: errorMessage,
+          statusCode: response.status,
+          isClientError: response.status >= 400 && response.status < 500,
+          isServerError: response.status >= 500,
+        };
+      }
+    } catch (networkError) {
+      console.error('API Multipart Network Error:', { endpoint, error: networkError });
       let errorMessage = 'Network error - please check your internet connection';
       if ((networkError as Error).message.includes('CONNECTION_REFUSED')) {
         errorMessage = 'Cannot connect to server - make sure the API is running on localhost:8000';
