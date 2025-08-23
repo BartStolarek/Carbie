@@ -52,7 +52,7 @@ const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
 
 export default function MainChatScreen({ navigation }: any) {
   const [inputText, setInputText] = useState('');
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUris, setImageUris] = useState<string[]>([]);
   const [results, setResults] = useState<ResultItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState('');
@@ -284,8 +284,8 @@ export default function MainChatScreen({ navigation }: any) {
     loggingService.info(`${methodName}: Starting submission process`, { 
       hasInputText: !!inputText,
       inputTextLength: inputText.length,
-      hasImageUri: !!imageUri,
-      imageUri: imageUri || 'none'
+      hasImageUris: imageUris.length > 0,
+      imageCount: imageUris.length
     });
 
     setLoading(true);
@@ -335,82 +335,91 @@ export default function MainChatScreen({ navigation }: any) {
 
       loggingService.info(`${methodName}: Submitting request to API`, { 
         promptLength: prompt.length,
-        hasImage: !!imageUri 
+        hasImages: imageUris.length > 0,
+        imageCount: imageUris.length
       });
       
       let response: any;
       
-      if (imageUri) {
-        // Validate image URI before processing
+      if (imageUris.length > 0) {
+        // Validate image URIs before processing
         // Support file://, http://, https://, and data: URIs (base64 images)
-        if (!imageUri.startsWith('file://') && 
-            !imageUri.startsWith('http://') && 
-            !imageUri.startsWith('https://') && 
-            !imageUri.startsWith('data:')) {
-          loggingService.warn(`${methodName}: Invalid image URI format`, { imageUri });
-          showAlert('Invalid Image', 'The selected image format is not supported. Please try another image.');
-          return;
+        for (const imageUri of imageUris) {
+          if (!imageUri.startsWith('file://') && 
+              !imageUri.startsWith('http://') && 
+              !imageUri.startsWith('https://') && 
+              !imageUri.startsWith('data:')) {
+            loggingService.warn(`${methodName}: Invalid image URI format`, { imageUri });
+            showAlert('Invalid Image', 'The selected image format is not supported. Please try another image.');
+            return;
+          }
         }
         
-        // Convert image URI to File/Blob and send as multipart
-        loggingService.info(`${methodName}: Converting image URI to file and sending as multipart`, { imageUri });
+        // Convert image URIs to File/Blob and send as multipart
+        loggingService.info(`${methodName}: Converting image URIs to files and sending as multipart`, { imageUris });
         
         try {
-          let imageBlob: Blob;
+          const processedImages: { blob: Blob; originalDimensions: { width: number; height: number } }[] = [];
           
-          if (imageUri.startsWith('data:')) {
-            // Handle base64 data URI (common in web/Expo)
-            loggingService.debug(`${methodName}: Processing base64 data URI`, { 
-              dataUriLength: imageUri.length,
-              dataUriPrefix: imageUri.substring(0, 50) + '...' 
-            });
-            const response = await fetch(imageUri);
-            imageBlob = await response.blob();
-          } else {
-            // Handle file:// or http:// URIs
-            loggingService.debug(`${methodName}: Fetching image from URI`);
-            const imageResponse = await fetch(imageUri);
-            loggingService.debug(`${methodName}: Image fetched, converting to blob`);
-            imageBlob = await imageResponse.blob();
-          }
-          
-          loggingService.info(`${methodName}: Image converted to blob successfully`, { 
-            blobSize: imageBlob.size,
-            blobType: imageBlob.type 
-          });
-          
-          // Process image - check dimensions and resize if necessary
-          loggingService.info(`${methodName}: Processing image for size optimization`);
-          let processedImage;
-          
-          try {
-            processedImage = await ImageService.processImage(imageBlob);
+          for (const imageUri of imageUris) {
+            let imageBlob: Blob;
             
-            if (processedImage.wasResized) {
-              loggingService.info(`${methodName}: Image resized successfully`, {
-                originalDimensions: processedImage.originalDimensions,
-                newDimensions: processedImage.newDimensions,
-                originalSize: imageBlob.size,
-                newSize: processedImage.blob.size,
-                sizeReduction: `${((imageBlob.size - processedImage.blob.size) / imageBlob.size * 100).toFixed(1)}%`
+            if (imageUri.startsWith('data:')) {
+              // Handle base64 data URI (common in web/Expo)
+              loggingService.debug(`${methodName}: Processing base64 data URI`, { 
+                dataUriLength: imageUri.length,
+                dataUriPrefix: imageUri.substring(0, 50) + '...' 
               });
+              const response = await fetch(imageUri);
+              imageBlob = await response.blob();
             } else {
-              loggingService.info(`${methodName}: Image did not require resizing`, {
-                dimensions: processedImage.originalDimensions
-              });
+              // Handle file:// or http:// URIs
+              loggingService.debug(`${methodName}: Fetching image from URI`);
+              const imageResponse = await fetch(imageUri);
+              loggingService.debug(`${methodName}: Image fetched, converting to blob`);
+              imageBlob = await imageResponse.blob();
             }
-          } catch (processingError) {
-            loggingService.error(`${methodName}: Failed to process image for optimization`, {
-              error: processingError instanceof Error ? processingError.message : 'Unknown error',
-              stack: processingError instanceof Error ? processingError.stack : undefined
+            
+            loggingService.info(`${methodName}: Image converted to blob successfully`, { 
+              blobSize: imageBlob.size,
+              blobType: imageBlob.type 
             });
-            // Use original image if processing fails
-            processedImage = {
-              blob: imageBlob,
-              originalDimensions: { width: 0, height: 0 },
-              newDimensions: { width: 0, height: 0 },
-              wasResized: false
-            };
+            
+            // Process image - check dimensions and resize if necessary
+            loggingService.info(`${methodName}: Processing image for size optimization`);
+            let processedImage;
+            
+            try {
+              processedImage = await ImageService.processImage(imageBlob);
+              
+              if (processedImage.wasResized) {
+                loggingService.info(`${methodName}: Image resized successfully`, {
+                  originalDimensions: processedImage.originalDimensions,
+                  newDimensions: processedImage.newDimensions,
+                  originalSize: imageBlob.size,
+                  newSize: processedImage.blob.size,
+                  sizeReduction: `${((imageBlob.size - processedImage.blob.size) / imageBlob.size * 100).toFixed(1)}%`
+                });
+              } else {
+                loggingService.info(`${methodName}: Image did not require resizing`, {
+                  dimensions: processedImage.originalDimensions
+                });
+              }
+            } catch (processingError) {
+              loggingService.error(`${methodName}: Failed to process image for optimization`, {
+                error: processingError instanceof Error ? processingError.message : 'Unknown error',
+                stack: processingError instanceof Error ? processingError.stack : undefined
+              });
+              // Use original image if processing fails
+              processedImage = {
+                blob: imageBlob,
+                originalDimensions: { width: 0, height: 0 },
+                newDimensions: { width: 0, height: 0 },
+                wasResized: false
+              };
+            }
+            
+            processedImages.push(processedImage);
           }
           
           // For React Native compatibility, use the blob directly instead of File constructor
@@ -419,28 +428,34 @@ export default function MainChatScreen({ navigation }: any) {
           formData.append('model_name', 'claude-haiku');
           formData.append('model_version', 'latest');
           formData.append('prompt', prompt);
-          formData.append('image', processedImage.blob, 'food_image.jpg');
           
-          // Send multipart request with both text and image
+          // Send multiple images - the backend should handle this
+          for (let i = 0; i < processedImages.length; i++) {
+            formData.append('image', processedImages[i].blob, `food_image_${i + 1}.jpg`);
+          }
+          
+          // Send multipart request with both text and images
           response = await apiClient.postMultipart<JobResponse>('/api/v1/carbie/', {
             model_name: 'claude-haiku',
             model_version: 'latest',
             prompt: prompt,
-            image: processedImage.blob,
+            image: processedImages[0].blob, // Send first image as 'image' for backward compatibility
+            // Add additional images if they exist
+            ...(processedImages.length > 1 && { image2: processedImages[1].blob }),
           });
           
-          loggingService.info(`${methodName}: Multipart request sent successfully`, { 
-            hasImage: true,
-            originalImageSize: imageBlob.size,
-            processedImageSize: processedImage.blob.size,
-            wasResized: processedImage.wasResized
-          });
-        } catch (imageError) {
-          loggingService.error(`${methodName}: Failed to process image for upload`, { 
-            error: imageError instanceof Error ? imageError.message : 'Unknown error',
-            imageUri,
-            stack: imageError instanceof Error ? imageError.stack : undefined
-          });
+                       loggingService.info(`${methodName}: Multipart request sent successfully`, { 
+               hasImage: true,
+               originalImageSize: processedImages.reduce((sum, img) => sum + img.blob.size, 0),
+               processedImageSize: processedImages.reduce((sum, img) => sum + img.blob.size, 0),
+               wasResized: processedImages.some(img => 'wasResized' in img && img.wasResized)
+             });
+                  } catch (imageError) {
+            loggingService.error(`${methodName}: Failed to process image for upload`, { 
+              error: imageError instanceof Error ? imageError.message : 'Unknown error',
+              imageCount: imageUris.length,
+              stack: imageError instanceof Error ? imageError.stack : undefined
+            });
           // Fallback to text-only request if image processing fails
           showAlert('Image Upload Failed', 'Failed to upload image. Proceeding with text-only analysis.');
           loggingService.info(`${methodName}: Falling back to text-only request due to image processing failure`);
@@ -520,7 +535,7 @@ export default function MainChatScreen({ navigation }: any) {
     } finally {
       setLoading(false);
       setInputText('');
-      setImageUri(null);
+      setImageUris([]);
       loggingService.info(`${methodName}: Request submission completed`);
     }
   };
@@ -547,8 +562,8 @@ export default function MainChatScreen({ navigation }: any) {
           <FoodInput
             inputText={inputText}
             onInputTextChange={setInputText}
-            imageUri={imageUri}
-            onImageChange={setImageUri}
+            imageUris={imageUris}
+            onImageChange={setImageUris}
             loading={loading}
             loadingStatus={loadingStatus}
             onSubmit={handleSubmit}

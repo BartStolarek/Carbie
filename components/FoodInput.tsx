@@ -37,8 +37,8 @@ const showAlert = Platform.OS === 'web' ? alertPolyfill : Alert.alert;
 interface FoodInputProps {
   inputText: string;
   onInputTextChange: (text: string) => void;
-  imageUri: string | null;
-  onImageChange: (uri: string | null) => void;
+  imageUris: string[];
+  onImageChange: (uris: string[]) => void;
   loading: boolean;
   loadingStatus: string;
   onSubmit: () => void;
@@ -47,7 +47,7 @@ interface FoodInputProps {
 export default function FoodInput({
   inputText,
   onInputTextChange,
-  imageUri,
+  imageUris,
   onImageChange,
   loading,
   loadingStatus,
@@ -56,6 +56,8 @@ export default function FoodInput({
   
   // Word limit constant
   const WORD_LIMIT = 250;
+  // Image limit constant
+  const IMAGE_LIMIT = 2;
   
   // Calculate current word count
   const getWordCount = (text: string) => {
@@ -64,6 +66,7 @@ export default function FoodInput({
   
   const currentWordCount = getWordCount(inputText);
   const isAtWordLimit = currentWordCount >= WORD_LIMIT;
+  const isAtImageLimit = imageUris.length >= IMAGE_LIMIT;
   
   // Handle text input with word limit
   const handleTextChange = (text: string) => {
@@ -75,6 +78,11 @@ export default function FoodInput({
   
   // Image Picker Helpers
   const pickImage = async () => {
+    if (isAtImageLimit) {
+      showAlert('Image Limit Reached', `You can only upload up to ${IMAGE_LIMIT} images per prompt.`);
+      return;
+    }
+    
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       showAlert('Permission required', 'Camera roll permission is needed.');
@@ -85,11 +93,16 @@ export default function FoodInput({
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      onImageChange(result.assets[0].uri);
+      onImageChange([...imageUris, result.assets[0].uri]);
     }
   };
 
   const takePhoto = async () => {
+    if (isAtImageLimit) {
+      showAlert('Image Limit Reached', `You can only upload up to ${IMAGE_LIMIT} images per prompt.`);
+      return;
+    }
+    
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       showAlert('Permission required', 'Camera permission is needed.');
@@ -100,11 +113,16 @@ export default function FoodInput({
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
-      onImageChange(result.assets[0].uri);
+      onImageChange([...imageUris, result.assets[0].uri]);
     }
   };
 
   const handleAttachImage = () => {
+    if (isAtImageLimit) {
+      showAlert('Image Limit Reached', `You can only upload up to ${IMAGE_LIMIT} images per prompt.`);
+      return;
+    }
+    
     showAlert('Add Image', 'Choose an option', [
       { text: 'Take Photo', onPress: takePhoto },
       { text: 'Choose from Gallery', onPress: pickImage },
@@ -113,11 +131,16 @@ export default function FoodInput({
   };
 
   const handleSubmitPress = () => {
-    if (!inputText.trim() && !imageUri) {
+    if (!inputText.trim() && imageUris.length === 0) {
       showAlert('Error', 'Please enter ingredients or attach an image');
       return;
     }
     onSubmit();
+  };
+
+  const removeImage = (index: number) => {
+    const newImageUris = imageUris.filter((_, i) => i !== index);
+    onImageChange(newImageUris);
   };
 
   return (
@@ -146,9 +169,18 @@ export default function FoodInput({
             </Text>
           </View>
           
-          <TouchableOpacity onPress={handleAttachImage} style={styles.imageIconWrapper}>
-            <MaterialIcons name="photo-camera" size={24} color="#2E7D32" />
+          <TouchableOpacity 
+            onPress={handleAttachImage} 
+            style={[styles.imageIconWrapper, isAtImageLimit && styles.imageIconDisabled]}
+            disabled={isAtImageLimit}
+          >
+            <MaterialIcons name="photo-camera" size={24} color={isAtImageLimit ? "#999" : "#2E7D32"} />
           </TouchableOpacity>
+          {imageUris.length > 0 && (
+            <Text style={[styles.imageCounter, imageUris.length > IMAGE_LIMIT && styles.imageCounterAtLimit]}>
+              {imageUris.length}/{IMAGE_LIMIT}
+            </Text>
+          )}
         </View>
 
         <TouchableOpacity
@@ -171,15 +203,19 @@ export default function FoodInput({
       </View>
 
       {/* Image Preview */}
-      {imageUri && (
+      {imageUris.length > 0 && (
         <View style={styles.imagePreviewContainer}>
-          <Image source={{ uri: imageUri }} style={styles.imagePreview} />
-          <TouchableOpacity
-            onPress={() => onImageChange(null)}
-            style={styles.removeImageButton}
-          >
-            <MaterialIcons name="close" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          {imageUris.map((uri, index) => (
+            <View key={index} style={styles.imagePreviewWrapper}>
+              <Image source={{ uri: uri }} style={styles.imagePreview} />
+              <TouchableOpacity
+                onPress={() => removeImage(index)}
+                style={styles.removeImageButton}
+              >
+                <MaterialIcons name="close" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          ))}
         </View>
       )}
     </View>
@@ -248,9 +284,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   imagePreviewContainer: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     marginBottom: 0,
     position: 'relative',
+  },
+  imagePreviewWrapper: {
+    position: 'relative',
+    margin: 5,
   },
   imagePreview: {
     width: 100,
@@ -282,5 +324,18 @@ const styles = StyleSheet.create({
   },
   wordCounterTextAtLimit: {
     color: 'rgba(255, 87, 34, 0.8)',
+  },
+  imageCounter: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+    alignSelf: 'center',
+  },
+  imageCounterAtLimit: {
+    color: '#FF5722',
+    fontWeight: 'bold',
+  },
+  imageIconDisabled: {
+    opacity: 0.5,
   },
 });
