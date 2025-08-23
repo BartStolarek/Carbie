@@ -54,6 +54,25 @@ export default function FoodInput({
   onSubmit,
 }: FoodInputProps) {
   
+  // Word limit constant
+  const WORD_LIMIT = 250;
+  
+  // Calculate current word count
+  const getWordCount = (text: string) => {
+    return text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+  };
+  
+  const currentWordCount = getWordCount(inputText);
+  const isAtWordLimit = currentWordCount >= WORD_LIMIT;
+  
+  // Handle text input with word limit
+  const handleTextChange = (text: string) => {
+    const newWordCount = getWordCount(text);
+    if (newWordCount <= WORD_LIMIT) {
+      onInputTextChange(text);
+    }
+  };
+  
   // Image Picker Helpers
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -107,14 +126,26 @@ export default function FoodInput({
       <View style={styles.inputSection}>
         <View style={styles.inputWrapper}>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, isAtWordLimit && styles.textInputAtLimit]}
             placeholder="What are you eating?"
             placeholderTextColor="#666"
             value={inputText}
-            onChangeText={onInputTextChange}
+            onChangeText={handleTextChange}
             multiline
             editable={!loading}
+
           />
+          
+          {/* Word Counter in Bottom Right Corner */}
+          <View style={styles.wordCounterOverlay}>
+            <Text style={[
+              styles.wordCounterText,
+              isAtWordLimit && styles.wordCounterTextAtLimit
+            ]}>
+              {currentWordCount}/{WORD_LIMIT}
+            </Text>
+          </View>
+          
           <TouchableOpacity onPress={handleAttachImage} style={styles.imageIconWrapper}>
             <MaterialIcons name="photo-camera" size={24} color="#2E7D32" />
           </TouchableOpacity>
@@ -180,12 +211,18 @@ const styles = StyleSheet.create({
     maxHeight: 80,
     fontSize: 16,
     color: '#333',
-    paddingBottom: 10,
+    paddingBottom: 25,
+    paddingRight: 50,
+  },
+  textInputAtLimit: {
+    borderWidth: 2,
+    borderColor: '#FF5722',
   },
   imageIconWrapper: {
     padding: 8,
     marginLeft: 4,
   },
+
   submitButton: {
     backgroundColor: '#FFFFFF',
     marginTop: 15,
@@ -230,5 +267,20 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  wordCounterOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    right: 12,
+    zIndex: 1,
+  },
+  wordCounterText: {
+    fontSize: 11,
+    color: 'rgba(102, 102, 102, 0.7)',
+    fontWeight: '500',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+  },
+  wordCounterTextAtLimit: {
+    color: 'rgba(255, 87, 34, 0.8)',
   },
 });
