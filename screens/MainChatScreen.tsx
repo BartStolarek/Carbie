@@ -27,6 +27,7 @@ import { authService } from '../services/AuthService';
 import { accessService, AccessResult } from '../services/AccessService';
 import { loggingService, LogMessage } from '../services/LoggingService';
 import TestDataService from '../services/TestDataService';
+import { ImageService } from '../services/ImageService';
 import { CarbieResult, IngredientData, JobResponse } from '../types/CarbieTypes';
 
 // Cross-platform alert function
@@ -378,25 +379,61 @@ export default function MainChatScreen({ navigation }: any) {
             blobType: imageBlob.type 
           });
           
+          // Process image - check dimensions and resize if necessary
+          loggingService.info(`${methodName}: Processing image for size optimization`);
+          let processedImage;
+          
+          try {
+            processedImage = await ImageService.processImage(imageBlob);
+            
+            if (processedImage.wasResized) {
+              loggingService.info(`${methodName}: Image resized successfully`, {
+                originalDimensions: processedImage.originalDimensions,
+                newDimensions: processedImage.newDimensions,
+                originalSize: imageBlob.size,
+                newSize: processedImage.blob.size,
+                sizeReduction: `${((imageBlob.size - processedImage.blob.size) / imageBlob.size * 100).toFixed(1)}%`
+              });
+            } else {
+              loggingService.info(`${methodName}: Image did not require resizing`, {
+                dimensions: processedImage.originalDimensions
+              });
+            }
+          } catch (processingError) {
+            loggingService.error(`${methodName}: Failed to process image for optimization`, {
+              error: processingError instanceof Error ? processingError.message : 'Unknown error',
+              stack: processingError instanceof Error ? processingError.stack : undefined
+            });
+            // Use original image if processing fails
+            processedImage = {
+              blob: imageBlob,
+              originalDimensions: { width: 0, height: 0 },
+              newDimensions: { width: 0, height: 0 },
+              wasResized: false
+            };
+          }
+          
           // For React Native compatibility, use the blob directly instead of File constructor
           // Create FormData manually for the multipart request
           const formData = new FormData();
           formData.append('model_name', 'claude-haiku');
           formData.append('model_version', 'latest');
           formData.append('prompt', prompt);
-          formData.append('image', imageBlob, 'food_image.jpg');
+          formData.append('image', processedImage.blob, 'food_image.jpg');
           
           // Send multipart request with both text and image
           response = await apiClient.postMultipart<JobResponse>('/api/v1/carbie/', {
             model_name: 'claude-haiku',
             model_version: 'latest',
             prompt: prompt,
-            image: imageBlob,
+            image: processedImage.blob,
           });
           
           loggingService.info(`${methodName}: Multipart request sent successfully`, { 
             hasImage: true,
-            imageSize: imageBlob.size 
+            originalImageSize: imageBlob.size,
+            processedImageSize: processedImage.blob.size,
+            wasResized: processedImage.wasResized
           });
         } catch (imageError) {
           loggingService.error(`${methodName}: Failed to process image for upload`, { 
