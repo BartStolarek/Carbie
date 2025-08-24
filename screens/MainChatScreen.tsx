@@ -330,11 +330,11 @@ export default function MainChatScreen({ navigation }: any) {
       }
 
       // Prepare prompt
-      let prompt = inputText.trim();
+      let user_prompt = inputText.trim();
       
 
       loggingService.info(`${methodName}: Submitting request to API`, { 
-        promptLength: prompt.length,
+        promptLength: user_prompt.length,
         hasImages: imageUris.length > 0,
         imageCount: imageUris.length
       });
@@ -427,18 +427,35 @@ export default function MainChatScreen({ navigation }: any) {
           const formData = new FormData();
           formData.append('model_name', 'claude-haiku');
           formData.append('model_version', 'latest');
-          formData.append('prompt', prompt);
+          formData.append('user_prompt', user_prompt);
           
           // Send multiple images - the backend should handle this
           for (let i = 0; i < processedImages.length; i++) {
             formData.append('image', processedImages[i].blob, `food_image_${i + 1}.jpg`);
           }
           
+          // Log all form data being sent
+          loggingService.info(`${methodName}: Form data being sent to API gateway`, {
+            formDataEntries: [
+              { key: 'model_name', value: 'claude-haiku' },
+              { key: 'model_version', value: 'latest' },
+              { key: 'user_prompt', value: user_prompt },
+              ...processedImages.map((img, index) => ({
+                key: `image${index + 1}`,
+                value: `Blob(${img.blob.size} bytes, ${img.blob.type})`,
+                filename: `food_image_${index + 1}.jpg`
+              }))
+            ],
+            totalImageCount: processedImages.length,
+            totalImageSize: processedImages.reduce((sum, img) => sum + img.blob.size, 0),
+            userPromptLength: user_prompt.length
+          });
+          
           // Send multipart request with both text and images
           response = await apiClient.postMultipart<JobResponse>('/api/v1/carbie/', {
             model_name: 'claude-haiku',
             model_version: 'latest',
-            prompt: prompt,
+            user_prompt: user_prompt,
             image: processedImages[0].blob, // Send first image as 'image' for backward compatibility
             // Add additional images if they exist
             ...(processedImages.length > 1 && { image2: processedImages[1].blob }),
@@ -459,19 +476,41 @@ export default function MainChatScreen({ navigation }: any) {
           // Fallback to text-only request if image processing fails
           showAlert('Image Upload Failed', 'Failed to upload image. Proceeding with text-only analysis.');
           loggingService.info(`${methodName}: Falling back to text-only request due to image processing failure`);
-          response = await apiClient.post<JobResponse>('/api/v1/carbie/', {
+          
+          // Log form data for fallback text-only request
+          loggingService.info(`${methodName}: Form data for fallback text-only request`, {
+            formDataEntries: [
+              { key: 'model_name', value: 'claude-haiku' },
+              { key: 'model_version', value: 'latest' },
+              { key: 'user_prompt', value: user_prompt }
+            ],
+            userPromptLength: user_prompt.length
+          });
+          
+          response = await apiClient.postMultipart<JobResponse>('/api/v1/carbie/', {
             model_name: 'claude-haiku',
             model_version: 'latest',
-            prompt: prompt,
+            user_prompt: user_prompt,
           });
         }
       } else {
         // Text-only request
-        loggingService.info(`${methodName}: Sending text-only request`);
-        response = await apiClient.post<JobResponse>('/api/v1/carbie/', {
+        loggingService.info(`${methodName}: Sending text-only request as multipart`);
+        
+        // Log form data for text-only request
+        loggingService.info(`${methodName}: Form data for text-only request`, {
+          formDataEntries: [
+            { key: 'model_name', value: 'claude-haiku' },
+            { key: 'model_version', value: 'latest' },
+            { key: 'user_prompt', value: user_prompt }
+          ],
+          userPromptLength: user_prompt.length
+        });
+        
+        response = await apiClient.postMultipart<JobResponse>('/api/v1/carbie/', {
           model_name: 'claude-haiku',
           model_version: 'latest',
-          prompt: prompt,
+          user_prompt: user_prompt,
         });
       }
 
