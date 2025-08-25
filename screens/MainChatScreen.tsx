@@ -29,6 +29,7 @@ import { loggingService, LogMessage } from '../services/LoggingService';
 import TestDataService from '../services/TestDataService';
 import { ImageService } from '../services/ImageService';
 import { CarbieResult, IngredientData, JobResponse } from '../types/CarbieTypes';
+import { CARBIE_API_ENDPOINT, DEFAULT_CARBIE_REQUEST_VALUES } from '../config/ApiConstants';
 
 // Cross-platform alert function
 const alertPolyfill = (title: string, description?: string, options?: any[], extra?: any) => {
@@ -422,29 +423,17 @@ export default function MainChatScreen({ navigation }: any) {
             processedImages.push(processedImage);
           }
           
-          // For React Native compatibility, use the blob directly instead of File constructor
-          // Create FormData manually for the multipart request
-          const formData = new FormData();
-          formData.append('model_name', 'claude-haiku');
-          formData.append('model_version', 'latest');
-          formData.append('user_prompt', user_prompt);
-          
-          // Send multiple images - the backend should handle this
-          for (let i = 0; i < processedImages.length; i++) {
-            formData.append('image', processedImages[i].blob, `food_image_${i + 1}.jpg`);
-          }
+          // Images will be sent using the consistent 'images' field format
           
           // Log all form data being sent
           loggingService.info(`${methodName}: Form data being sent to API gateway`, {
             formDataEntries: [
-              { key: 'model_name', value: 'claude-haiku' },
-              { key: 'model_version', value: 'latest' },
+              { key: 'model_name', value: DEFAULT_CARBIE_REQUEST_VALUES.model_name },
+              { key: 'model_version', value: DEFAULT_CARBIE_REQUEST_VALUES.model_version },
               { key: 'user_prompt', value: user_prompt },
-              ...processedImages.map((img, index) => ({
-                key: `image${index + 1}`,
-                value: `Blob(${img.blob.size} bytes, ${img.blob.type})`,
-                filename: `food_image_${index + 1}.jpg`
-              }))
+              { key: 'max_tokens', value: DEFAULT_CARBIE_REQUEST_VALUES.max_tokens },
+              { key: 'temperature', value: DEFAULT_CARBIE_REQUEST_VALUES.temperature },
+              { key: 'images', value: `${processedImages.length} image(s)` }
             ],
             totalImageCount: processedImages.length,
             totalImageSize: processedImages.reduce((sum, img) => sum + img.blob.size, 0),
@@ -452,13 +441,13 @@ export default function MainChatScreen({ navigation }: any) {
           });
           
           // Send multipart request with both text and images
-          response = await apiClient.postMultipart<JobResponse>('/api/v1/carbie/', {
-            model_name: 'claude-haiku',
-            model_version: 'latest',
+          response = await apiClient.postMultipart<JobResponse>(CARBIE_API_ENDPOINT, {
+            model_name: DEFAULT_CARBIE_REQUEST_VALUES.model_name,
+            model_version: DEFAULT_CARBIE_REQUEST_VALUES.model_version,
             user_prompt: user_prompt,
-            image: processedImages[0].blob, // Send first image as 'image' for backward compatibility
-            // Add additional images if they exist
-            ...(processedImages.length > 1 && { image2: processedImages[1].blob }),
+            max_tokens: DEFAULT_CARBIE_REQUEST_VALUES.max_tokens,
+            temperature: DEFAULT_CARBIE_REQUEST_VALUES.temperature,
+            images: processedImages.map(img => img.blob),
           });
           
                        loggingService.info(`${methodName}: Multipart request sent successfully`, { 
@@ -480,17 +469,21 @@ export default function MainChatScreen({ navigation }: any) {
           // Log form data for fallback text-only request
           loggingService.info(`${methodName}: Form data for fallback text-only request`, {
             formDataEntries: [
-              { key: 'model_name', value: 'claude-haiku' },
-              { key: 'model_version', value: 'latest' },
-              { key: 'user_prompt', value: user_prompt }
+              { key: 'model_name', value: DEFAULT_CARBIE_REQUEST_VALUES.model_name },
+              { key: 'model_version', value: DEFAULT_CARBIE_REQUEST_VALUES.model_version },
+              { key: 'user_prompt', value: user_prompt },
+              { key: 'max_tokens', value: DEFAULT_CARBIE_REQUEST_VALUES.max_tokens },
+              { key: 'temperature', value: DEFAULT_CARBIE_REQUEST_VALUES.temperature }
             ],
             userPromptLength: user_prompt.length
           });
           
-          response = await apiClient.postMultipart<JobResponse>('/api/v1/carbie/', {
-            model_name: 'claude-haiku',
-            model_version: 'latest',
+          response = await apiClient.postMultipart<JobResponse>(CARBIE_API_ENDPOINT, {
+            model_name: DEFAULT_CARBIE_REQUEST_VALUES.model_name,
+            model_version: DEFAULT_CARBIE_REQUEST_VALUES.model_version,
             user_prompt: user_prompt,
+            max_tokens: DEFAULT_CARBIE_REQUEST_VALUES.max_tokens,
+            temperature: DEFAULT_CARBIE_REQUEST_VALUES.temperature,
           });
         }
       } else {
@@ -500,17 +493,21 @@ export default function MainChatScreen({ navigation }: any) {
         // Log form data for text-only request
         loggingService.info(`${methodName}: Form data for text-only request`, {
           formDataEntries: [
-            { key: 'model_name', value: 'claude-haiku' },
-            { key: 'model_version', value: 'latest' },
-            { key: 'user_prompt', value: user_prompt }
+            { key: 'model_name', value: DEFAULT_CARBIE_REQUEST_VALUES.model_name },
+            { key: 'model_version', value: DEFAULT_CARBIE_REQUEST_VALUES.model_version },
+            { key: 'user_prompt', value: user_prompt },
+            { key: 'max_tokens', value: DEFAULT_CARBIE_REQUEST_VALUES.max_tokens },
+            { key: 'temperature', value: DEFAULT_CARBIE_REQUEST_VALUES.temperature }
           ],
           userPromptLength: user_prompt.length
         });
         
-        response = await apiClient.postMultipart<JobResponse>('/api/v1/carbie/', {
-          model_name: 'claude-haiku',
-          model_version: 'latest',
+        response = await apiClient.postMultipart<JobResponse>(CARBIE_API_ENDPOINT, {
+          model_name: DEFAULT_CARBIE_REQUEST_VALUES.model_name,
+          model_version: DEFAULT_CARBIE_REQUEST_VALUES.model_version,
           user_prompt: user_prompt,
+          max_tokens: DEFAULT_CARBIE_REQUEST_VALUES.max_tokens,
+          temperature: DEFAULT_CARBIE_REQUEST_VALUES.temperature,
         });
       }
 

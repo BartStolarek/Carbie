@@ -19,7 +19,7 @@ export interface ApiRequestOptions extends RequestInit {
 }
 
 export interface MultipartData {
-  [key: string]: string | File | Blob;
+  [key: string]: string | File | Blob | number | (File | Blob)[];
 }
 
 class ApiClient {
@@ -201,6 +201,13 @@ class ApiClient {
       const value = data[key];
       if (value instanceof File || value instanceof Blob) {
         formData.append(key, value);
+      } else if (Array.isArray(value)) {
+        // Handle arrays (like images field)
+        value.forEach((item, index) => {
+          if (item instanceof File || item instanceof Blob) {
+            formData.append(key, item);
+          }
+        });
       } else {
         formData.append(key, String(value));
       }
